@@ -1,0 +1,265 @@
+---
+title: "Experimental Design and Differential Expression Analysis"
+author: "Ricardo Ramirez"
+date: "6/19/2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+#Designing Experiments
+
+Your newly funded institute is ready and you have decided to produce massive omics data to understand cell mechanisms in cancer.
+
+You are responsible of the NCI-60 cancer cell line panel!
+
+You have treated different cancer cell lines (coming from different tissues) with different drugs.
+
+1) Stop for a second... What can go wrong? Think of all the possible technical and experimental errors that may occur, from cell culture, omics profiling and team organization.
+
+2) How many factors are you measuring in the NCI-60 panel? What are their levels?
+
+3) Propose an experimental design to reduce technical variability and confounding factors. 
+ 
+# Exploring Batch Effects 1
+
+You receive a new data set of gene expression that comprises 2 different disease conditions in the kidney (biopsies of different patients). The only meta information you have is the condition label. After plotting a MDS, you observe the following:
+
+```{r, echo=FALSE}
+#Simulating gene expression data
+library(limma)
+
+DE = c(rep(FALSE,9),TRUE)
+
+Simulation1 = sapply(1:1000,function(x){
+  
+  if(sample(DE,1)){
+    TissueA = rnorm(30,10,1)
+    TissueB = rnorm(30,16,1)
+  }else{
+    TissueA = rnorm(30,10,1)
+    TissueB = rnorm(30,10,1)
+  }
+  
+  gene_vect = c(TissueA,TissueB)
+  
+  #Uniform error to each paired sample
+  gene_vect[seq(1,60,2)] = gene_vect[seq(1,60,2)] + runif(30,min=0,max=1.5)
+  gene_vect[seq(0,60,2)[-1]] = runif(30,min=1,max=2.5) + gene_vect[seq(0,60,2)[-1]]
+  
+  return(gene_vect)
+  
+})
+
+plotMDS(t(Simulation1), labels = c(rep("CondA",30),rep("CondB",30)),cex =.8, col = c(rep("darkblue",30),rep("darkgreen",30)))
+```
+
+1) How do you explain this distribution of samples?
+
+#Exploring Batch Effects 2
+
+Your collaborator wants you to help him with a "simple" gene expression analysis of two different types of lung cancer.
+
+You have meta information about who prepared the libraries for RNASeq and the conditions (data provided)
+
+1) Plot a MDS or a PCA
+2) What will you tell your collaborator? Is it a good idea to fit statistical models to this data set?
+3) How would you plan this study?
+
+```{r, echo = F}
+Simulation2 = sapply(1:1000,function(x){
+  if(sample(DE,1)){
+    TissueA = rnorm(30,10,1)
+    TissueB = rnorm(30,16,1)
+  }else{
+    TissueA = rnorm(30,10,1)
+    TissueB = rnorm(30,10,1)
+  }
+  
+  gene_vect = c(TissueA,TissueB)
+  
+  #Uniform error to each paired sample
+  gene_vect[seq(1,30,1)] = gene_vect[seq(1,30,1)] + runif(30,min=0,max=1.5)
+  gene_vect[seq(31,60,1)] = runif(30,min=1,max=2.5) + gene_vect[seq(31,60,1)]
+  
+  return(gene_vect)
+})
+
+Simulation2 = t(Simulation2)
+
+SampleNames = paste("Sample", as.character(1:60), sep = "_")
+Conditions =  c(rep("CondA",30),rep("CondB",30))
+RNAlibrary =  c(rep("StudentA",30),rep("StudentB",30))
+
+colnames(Simulation2) = SampleNames
+
+Simulation2_targets = data.frame(SampleNames,Conditions,RNAlibrary,stringsAsFactors = F)
+
+write.table(Simulation2_targets, col.names = T, quote = F, row.names = F, sep ="\t",
+            file = "/Users/ricardoramirez/Dropbox/PhD/SysBioCourse/Day3_lab/Simulation_targets.txt")
+
+write.table(Simulation2,col.names = T, quote = F, row.names = F, sep ="\t",
+            file = "/Users/ricardoramirez/Dropbox/PhD/SysBioCourse/Day3_lab/Simulation.txt")
+
+save(Simulation2, 
+     file = "/Users/ricardoramirez/Dropbox/PhD/SysBioCourse/Day3_lab/Simulation2.ro")
+
+save(Simulation2_targets,
+     file = "/Users/ricardoramirez/Dropbox/PhD/SysBioCourse/Day3_lab/Simulation_targets.ro")
+
+plotMDS(Simulation2,labels = Simulation2_targets$Conditions)
+plotMDS(Simulation2,labels = Simulation2_targets$RNAlibrary)
+
+
+test = prcomp(t(Simulation2))
+PCs = test$x[,c(1,2)]
+
+PLOTDF = data.frame("PC1" = PCs[,1],
+                 "PC2" = PCs[,2],
+                 "Condition" = Simulation2_targets$Conditions,
+                 "Student" = Simulation2_targets$RNAlibrary)
+
+ggplot(PLOTDF, aes(x=PC1,y=PC2, label = Condition)) + geom_point() + geom_text()
+
+
+plot(PCs[,1],PCs[,2])
+text(colnames(Simulation2))
+
+```
+
+# Differential Expression NCI-60: Basics
+
+1) Compare the basal expression profiles of two different tissues using the information coming of all cell lines
+    - Make an exploratory analysis of the tissues you are using (barplot)
+    - You can use linear models, t-test or anovas.
+    - Compare the results with your classmates, the final results should all be the same (if filtered by p-value)
+    
+Read your data
+    
+```{r, message=F,warning=F}
+library(limma)
+library(tidyverse)
+
+data = as.matrix(read.csv('~/Dropbox/PhD/SysBioCourse/my_data.csv', row.names=1, stringsAsFactors=F))
+meta = read.csv('~/Dropbox/PhD/SysBioCourse/my_p_data.csv', row.names=1, stringsAsFactors=F)
+```
+
+Let's extract the information of our samples from the names
+
+```{r}
+METAdata = strsplit(meta$title,"_")
+names(METAdata) = 1:length(METAdata)
+METAdata = data.frame(t(bind_rows(METAdata)),
+                      stringsAsFactors = F)
+colnames(METAdata) = c("cell_line","drug","concentration","time")
+
+METAdata$sample = meta$geo_accession
+METAdata$tissue = meta$tissue.ch1
+
+METAdata$test = "Rico"
+```
+
+I will work with basal expression profiles
+
+```{r}
+basal_METAdata = filter(METAdata, concentration == "0nM")
+basal_METAdata = METAdata[METAdata$concentration == "0nM",]
+
+barplot(sort(table(basal_METAdata$tissue)),las =2)
+```
+
+Only choose two tissues
+
+```{r}
+basal_METAdata = filter(basal_METAdata, tissue %in% c("Renal","Lung"))
+
+basal_METAdata[basal_METAdata$tissue == "Renal" | basal_METAdata$tissue == "Lung",]
+```
+
+Get a reduced gene expression matrix
+
+```{r}
+basal_GEX = data[,basal_METAdata$sample]
+
+plotMDS(basal_GEX,labels = basal_METAdata$tissue)
+```
+
+Let's perform a Differential Expression Analysis using 3 different methods
+
+```{r}
+genes = rownames(basal_GEX)
+names(genes) = genes
+
+
+ttest_summary = data.frame(t(sapply(genes,function(gene){
+  
+       modelDF = tibble("Expression" = basal_GEX[gene,],
+                        "Tissue" = factor(basal_METAdata$tissue,levels = c("Renal","Lung")))
+       
+       Renal_data = filter(modelDF,Tissue == "Renal")[[1]]
+       Lung_data = filter(modelDF,Tissue == "Lung")[[1]]
+       
+       tres = t.test(Lung_data,Renal_data,var.equal = T)
+       tres = c(tres$statistic,tres$p.value)
+       names(tres) = c("t","p_value")
+       
+       return(tres)
+})), stringsAsFactors = F) %>% 
+                rownames_to_column(var="Gene") %>% mutate("adj_pvalue" = p.adjust(p_value,"BH"))
+
+ttest_genes = (filter(ttest_summary, adj_pvalue < 0.05))[[1]]
+
+lm_summary = data.frame(t(sapply(genes,function(gene){
+  
+       modelDF = tibble("Expression" = basal_GEX[gene,],
+                        "Tissue" = factor(basal_METAdata$tissue,levels = c("Renal","Lung")))
+       
+       lmres = lm(Expression~Tissue,data = modelDF)
+       lmres = summary(lmres)$coefficients[2,c(3,4)]
+       names(lmres) = c("t","p_value")
+       
+       return(lmres)
+}))) %>% rownames_to_column(var="Gene") %>% mutate("adj_pvalue" = p.adjust(p_value,"BH"))
+
+anova_summary = data.frame(t(sapply(genes,function(gene){
+  
+       modelDF = tibble("Expression" = basal_GEX[gene,],
+                        "Tissue" = factor(basal_METAdata$tissue,levels = c("Renal","Lung")))
+       
+       anovares = anova(aov(Expression ~ Tissue,data = modelDF))
+       anovares = c(anovares$`F value`[1],anovares$`Pr(>F)`[1])
+       names(anovares) = c("F","p_value")
+       
+       return(anovares)
+}))) %>% rownames_to_column(var="Gene") %>% mutate("adj_pvalue" = p.adjust(p_value,"BH"))
+
+
+```
+
+## Differential Expression NCI-60: Advanced
+
+1) Repeat the last comparison using limma
+2) Define a contrast
+
+```{r}
+Lung_Renal_data = basal_GEX[,basal_METAdata$sample]
+f = factor(basal_METAdata$tissue, levels= c("Lung","Renal"))
+design <- model.matrix(~0+f)
+colnames(design) <- c("Lung","Renal")
+
+
+fit <- lmFit(Lung_Renal_data, design) #Fit linear model, as before (intercept 0, so each coefficient is the mean)
+
+cont.matrix <- makeContrasts(Tissue_dif = Lung - Renal,
+                               levels=design)
+
+fit2 <- contrasts.fit(fit, cont.matrix)
+fit2 <- eBayes(fit2)
+
+DEA_results = as.data.frame(topTable(fit2,adjust.method = "BH",number = Inf)) %>% rownames_to_column(var = "Gene") %>%
+               arrange(desc(abs(t))) %>% as_tibble()
+
+limma_genes = filter(DEA_results, adj.P.Val < 0.05)[[1]]
+
+DEA_results
+```
