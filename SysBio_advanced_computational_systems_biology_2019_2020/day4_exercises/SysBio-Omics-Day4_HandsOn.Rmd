@@ -1,0 +1,128 @@
+---
+title: "Introduction to footprint analysis"
+author: "Aurelien Dugourd"
+date: "6/19/2019"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+#Introduction
+
+In this practical we will run a transcription factor analysis and a pathway analysis using footprint based methods.
+
+The goal here is to play around with the parameters of the analysis to get a good sense of how to interpret the results.
+
+#Getting everything we need
+
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=4, fig.width=12}
+library(readr)
+
+lung_vs_renal_ttop <- as.data.frame(read_csv("Dropbox/course_HD/data/lung_vs_renal_ttop.csv")) #Got this from the limma analysis of day3
+
+load("~/Dropbox/course_HD/dorothea_viper.Rdata") #This is generated with the df_to_viper_regulon() function of omictoolstest (see github) with DOROTHEA's v2 regulons
+
+progeny_coef_matrix <- as.data.frame(read_csv("Dropbox/course_HD/model_NatComm+14_human.csv")) #Got this from Christian
+
+source("~/Dropbox/course_HD/support_functions.R")
+```
+
+#Checking the differential analysis result
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=10, fig.width=10}
+library(ggplot2)
+library(ggrepel)
+
+volcano_nice(lung_vs_renal_ttop, FCIndex = 2, IDIndex = 1, pValIndex = 5, nlabels = 30, label = T)
+```
+
+#Classic pathway analysis with GSEA
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=10, fig.width=10}
+library(qusage)
+library(fgsea)
+
+KEGG <- read.gmt("~/Dropbox/course_HD/gene_set_collection/c2.cp.kegg.v6.2.symbols.gmt") #Get this directly from msigdb
+
+gene_diff_expression <- lung_vs_renal_ttop$t
+names(gene_diff_expression) <- lung_vs_renal_ttop$Gene
+
+pathway_analysis <- as.data.frame(fgsea(pathways = KEGG, stats = gene_diff_expression, nperm = 1000, minSize = 5, gseaParam = 1))
+pathway_analysis <- pathway_analysis[order(pathway_analysis$padj, decreasing = F),]
+```
+
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=10, fig.width=10}
+top_pathways <- as.data.frame(pathway_analysis[c(1:10),5])
+row.names(top_pathways) <- as.character(pathway_analysis[1:10, 1])
+
+library(pheatmap)
+
+pheatmap(top_pathways, cluster_cols = F)
+```
+Now, try to change the gseaParam value. How does this affect your data, and why.
+
+#Transcription factor analysis
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=10, fig.width=10}
+library(viper)
+
+#Prepare the measurments for viper
+viper_expression <- lung_vs_renal_ttop$t
+names(viper_expression) <- lung_vs_renal_ttop$Gene
+
+###This is just to handle a bug in viper
+viper_expression <- as.data.frame(viper_expression)
+viper_expression$dummy <- viper_expression$viper_expression
+
+###COmpute TF activity scores
+TFactivity <- as.data.frame(viper(eset = viper_expression, regulon = dorothea_viper, minsize = 2, adaptive.size = F, eset.filter = T))
+names(TFactivity) <- "activity"
+```
+
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=5, fig.width=10}
+TFactivity_top <- TFactivity
+TFactivity_top$TF <- row.names(TFactivity_top)
+TFactivity_top <- TFactivity_top[abs(TFactivity_top$activity) > 3,]
+
+ggplot(TFactivity_top, aes(x = TF, y = activity)) + geom_bar(stat="identity") + theme_minimal()
+```
+
+Now, try to change the minsize paramater and eset.filter and see how it affects the results. How does the eset.filter parameter affect the interpretation of the result ?
+
+#Progeny analysis
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=10, fig.width=10}
+progeny_pathway_scores <- runProgenyFast(lung_vs_renal_ttop[,c(1,4)], weight_matrix = progeny_coef_matrix, k = 1000)
+names(progeny_pathway_scores) <- "score"
+progeny_pathway_scores$pathway <- row.names(progeny_pathway_scores)
+```
+
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=5, fig.width=10}
+ggplot(progeny_pathway_scores, aes(x = pathway, y = score)) + geom_bar(stat="identity") + theme_minimal()
+```
+
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=10, fig.width=10}
+progeny_pathway_scores_pval <- progeny_pathway_scores
+progeny_pathway_scores_pval$pval_lower <- pnorm(progeny_pathway_scores$score, lower.tail = T)
+progeny_pathway_scores_pval$pval_upper <- pnorm(progeny_pathway_scores$score, lower.tail = F)
+```
+
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=10, fig.width=10}
+progeny_res_df <- list()
+for(i in 1:100)
+{
+  progeny_res_df[[i]] <- runProgenyFast(lung_vs_renal_ttop[,c(1,4)], weight_matrix = progeny_coef_matrix, k = 1000)
+}
+progeny_res_df <- do.call(cbind,progeny_res_df)
+names(progeny_res_df) <- paste("Run_",c(1:100),sep="")
+
+print(mean(apply(progeny_res_df,1,sd)))
+```
+Now play around with the number of permutations and see how it affect the stability of the result. Why does it affect it this way ?
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=10, fig.width=10}
+
+```
+
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=10, fig.width=10}
+
+```
+
+```{r, message=FALSE, warning=FALSE,results='hide',fig.keep='all', fig.height=10, fig.width=10}
+
+```
