@@ -1,0 +1,404 @@
+---
+title: "SysBio Day 2 Hands On"
+output:
+  html_document:
+    toc: yes
+    toc_float: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo=TRUE)
+library(knitr)
+
+#Create working directory
+outdir <- "~/SysBio_day1_2"
+
+#Set working directory
+setwd(outdir)
+```
+
+## Overview
+
+In today's practice we will be focusing on data visualization with ggplot.
+
+You can find a useful cheatsheet for `ggplot2` and other common R
+packages in the RStudio website: https://www.rstudio.com/resources/cheatsheets/
+
+## 1) Loading packages and data
+
+Most of the methods explained during the class are part of `R-basics`.
+Thus their installation are not required.
+
+Still, we will need to install the following packages
+
+
+```{r install_deps, message=F, eval=F}
+install.packages('Rtsne')
+install.packages('ggplot2')
+install.packages('magrittr')
+install.packages('stringr')
+install.packages('plyr')
+install.packages('dplyr')
+install.packages('tidyr')
+install.packages('pheatmap')
+```
+
+### Loading necessary packages
+
+```{r packages, message=F}
+library(Rtsne)
+library(ggplot2)
+library(magrittr)
+library(stringr)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(pheatmap)
+```
+
+### Load the data
+
+Load the expression and annotation data we saved yesterday:
+
+```{r load, results=F, message=F}
+
+data = readRDS('~/SysBio_day1_2/lapatinib_expression.rds')
+meta = readRDS('~/SysBio_day1_2/lapatinib_phenotype.rds')
+```
+
+## 4) Generating barplot
+
+Let's create a barplot to see how many samples we have per tissue. First we
+will count how many samples per tissue we have in our data set and generate
+a list of colors for each one.
+
+```{r barplot_tissue, results=F, message=F}
+
+#Remove special characters from metadata column names (using pipe function %>% [ctr/cmd+shift+m])
+colnames(meta) <- colnames(meta) %>% str_replace_all(":", ".")
+
+#Create summary table
+tissue.sum <- table(meta$tissue.ch1) %>% as.data.frame()
+
+#Create ggplot item
+ggp <- ggplot(tissue.sum, aes(x=Var1, y=Freq))
+
+#Add bar feature
+ggp + geom_col()
+
+#Change x and y labels
+ggp + geom_col() +
+  xlab("Tissue type") +
+  ylab("Frequency")
+
+## Add colours
+
+#Recreate ggplot item
+ggp <- ggplot(tissue.sum, aes(x=Var1, y=Freq, fill=Var1))
+
+ggp + geom_col() +
+  xlab("Tissue type") +
+  ylab("Frequency")
+
+#Change data order -- working with factors
+
+#Look at current factor
+tissue.sum$Var1
+
+#What happens if we sort the table and check the factor again
+tissue.sum[order(tissue.sum$Freq, decreasing = FALSE),]$Var1
+
+#Create correct levels order
+new.levels <- tissue.sum[order(tissue.sum$Freq, decreasing = FALSE),]$Var1 %>% as.character()
+
+tissue.sum$Var1 <- factor(tissue.sum$Var1, new.levels) 
+
+#Recreate ggplot item
+ggp <- ggplot(tissue.sum, aes(x=Var1, y=Freq, fill=Var1))
+
+ggp + geom_col() +
+  xlab("Tissue type") +
+  ylab("Frequency")
+
+########
+# TASK #
+########
+
+##Replot with the tissue types in decreasing order (largest first)
+
+
+```
+
+#Summarising data with group_by
+```{r groups, results=F, message=F}
+
+#Select specific columns
+meta.drugcount <- meta %>% subset(select=c(tissue.ch1, drug_conc)) %>% 
+  #Group by columns of interest
+  group_by(tissue.ch1, drug_conc) %>% 
+  #Count number of occurences of each drug concentration by evaluating the length of the group
+  mutate(count=length(drug_conc)) %>% 
+  #Remove duplicate rows
+  unique()
+  
+########
+# TASK #
+########
+
+##Create meta.drugtime using the above technique and the drug_tpoint column
+
+```
+
+
+
+## 5) Basic statistics
+
+Let us first compute some summary statistics and  plot them across samples in
+order to get a preliminary idea of our expression data.
+
+```{r descriptive_stats, results=F, message=F}
+
+#Calculate key stats of expression data
+c_mean = colMeans(data)
+c_median = apply(data, 2, median)
+c_std = apply(data, 2, sd)
+
+#Create numeric values of samples (equivalent to sample names)
+rng = 1:length(c_mean)
+
+#Put into dataframe
+sumstats = data.frame(c_mean=c_mean,
+                      c_median=c_median,
+                      c_std=c_std,
+                      rng=rng)
+
+#Create geom_point plot using x as a range of sample "numbers" and y as log2(expr), adding both median and mean values
+statplot <- ggplot(sumstats, aes(x=rng, y=c_median)) +
+  #Add points for median (setting legend label to median)
+  geom_point(aes(color="median")) +
+  #Add points for mean
+  geom_point(aes(x=rng, y=c_mean, color="mean")) +
+  #Set y range from lower to upper std deviations
+  ylim(range(c(c_mean-c_std, c_mean+c_std))) +
+  #Change y axis label
+  ylab("log2(expr)") +
+  #Change x axis label
+  xlab("Samples")
+
+statplot
+
+#Adding error bars
+statplot +
+  geom_errorbar(aes(ymin=c_mean-c_std, ymax=c_mean+c_std), width=.2) 
+
+
+```
+
+## 6) Boxplots
+
+Let's see now how this data looks using a box plot, coloring by tissue:
+
+```{r distribution2, results=F, message=F}
+
+#Box plots usually calculate their own summary statistics, so they need to be given the entire sample matrix
+#However we first need to put that into long format
+melted.data <- data %>% gather()
+
+#Select first four samples only (otherwise boxplot would be unreadable)
+smps <- meta$title[1:4]
+
+short <- melted.data[melted.data$key %in% smps,]
+
+#Create boxplot
+ggplot(short, aes(x=key, y=value)) +
+  geom_boxplot()
+
+#Merge summary stats with meta data
+merged.meta <- merge(melted.data, meta, by.x="key", by.y="title", all.x=TRUE)
+
+#Create boxplot
+ggplot(merged.meta, aes(x=tissue.ch1, y=value)) +
+  geom_boxplot()
+
+########
+# TASK #
+########
+
+##Create box plot showing expression statistics per drug concentration
+
+#Did it work? are you sure?
+
+```
+
+## 7) Histogram + density
+
+Now we select a sample and see how the expression data distribution looks like.
+To do this we can plot the histogram or the density plot (or both).
+
+```{r distrib, results=F, message=F}
+
+#Set sample that we want to look at
+sample_name = "A498_lapatinib_10000nM_24h"
+
+#Select that sample from our data
+data.smp <- melted.data[melted.data$key == sample_name,]
+
+#Create histogram of expression values with density
+ggplot(data.smp, aes(x=value)) +
+  geom_histogram(aes(y=..density..), color="black", fill="grey") +
+  geom_density(alpha=.2, fill="#FF6666")
+
+#Now lets do this for 4 samples and show it in a facet_wrap
+
+#Select that sample from our data (using smps variable we created before)
+data.smp <- melted.data[melted.data$key %in% smps,]
+
+#Create histogram of expression values with density
+ggplot(data.smp, aes(x=value)) +
+  geom_histogram(aes(y=..density..), color="black", fill="grey") +
+  geom_density(alpha=.2, fill="#FF6666") +
+  facet_wrap(~key)
+
+```
+
+### Finished with our quality/summary stats, lets clean our environment
+
+
+```{r clean, results=F, message=F}
+
+rm(list=setdiff(ls(), c("data", "meta")))
+```
+
+
+## 8) Heatmap + hierarchical clustering
+
+Now we will plot the heatmap of our expression profiles along with the
+hierarchical clustering. On top of that, we will show the tissue of origin with
+colors (which can nicely be done in a single function in base R):
+
+```{r hmap, results=F, message=F}
+
+## Create an annotation df
+
+# Create patient name column (sapply: apply over list, '[': get element, 1: first element)
+meta$patient <- sapply(strsplit(meta$title, "_"), `[`, 1)
+
+anno <- meta %>% subset(select=c(title, patient, tissue.ch1))
+
+row.names(anno) <- anno$title
+
+anno <- anno[-1]
+
+#Create short version for quick plotting
+data.short <- data[1:500,]
+
+#Plot data
+pheatmap(as.matrix(data.short), annotation_col = anno, show_rownames=FALSE, show_colnames=FALSE)
+
+```
+
+## 9) Scatter plot and correlation
+
+Melanoma samples seem to cluster together, let's see how
+well they correlate:
+
+```{r scatter_melanoma, results=F, message=F}
+#Find names of melanoma samples
+usecols <- meta[meta$tissue.ch1 == 'Melanoma',]$title
+
+## Plot correlation of first two samples
+#Select data for first two samples
+data.corr <- data %>% subset(select=c(usecols[1], usecols[2]))
+
+#Plot
+ggplot(data.corr, aes_string(x=usecols[1], y=usecols[2])) +
+  geom_point()
+
+#Find correlation of all samples
+cor(data[, usecols]) 
+
+#Find mean of correlations
+cor(data[, usecols]) %>% mean()
+
+```
+
+## 10) PCA on gene expression profiles of treated cell lines
+
+Next, a Principal Component Analysis (PCA) is performed on the data to assess
+the main sources of variability across the gene expression profiles.
+In order to do this, we first define a simple function that shows the most
+relevant information from the PCA (i.e. the first 2 principal components and how
+much variance each one explains).
+
+```{r, func_pca, results=F, message=F}
+
+# Perform PCA using prcomp function
+# Note: the matrix must be transposed, so samples are rows
+pca.n <- prcomp(t(data))
+
+#Generating function created by colleague that plots PCA data
+plotPCA <- function(pca, pchs=21, colour=NULL, PCs=c("PC1", "PC2")){
+  # stopifnot(pca)
+  # stopifnot(length(PCs) == 2)
+  tmp <- summary(pca)
+    # importance: variance explained
+    PCx <- format(round(tmp$importance[2, PCs[1]] * 100, digits=2), nsmall=2)
+    PCy <- format(round(tmp$importance[2, PCs[2]] * 100, digits=2), nsmall=2)
+  x <- data.frame(pca$x)
+  
+  #Merge PCs back to metadata for annotation (may need to change by.y for other metadatas)
+  merged <- x %>% subset(select=PCs) %>% merge(., meta, by.x="row.names", by.y="title")
+
+  # Plot
+  ggplot(merged, aes_string(x=PCs[1], y=PCs[2], colour=colour)) +
+    geom_point() +
+    xlab(paste(PCs[1], "(", PCx, "% var. expl.)", sep="")) +
+    ylab(paste(PCs[2], "(", PCy, "% var. expl.)", sep=""))
+  
+}
+
+
+```
+
+Now let's plot it!
+
+```{r plot_pca, results=F, message=F}
+
+#Run previously generated function
+plotPCA(pca.n, PCs=c("PC1", "PC2"), colour="tissue.ch1")
+
+########
+# TASK #
+########
+
+#Try plotting the PCA using a different annotation column such as patient
+
+```
+
+## 11) t-SNE
+
+t-distributed Stochastic Neighbour Embedding is another dimensionality reduction
+algorithm (originally developed by Laurens Van der Maaten) that has gained a lot
+of importance in the last years. One of its major improvements from the common
+PCA is that is able to reveal some non-linear relations across (multi-
+dimensional) data points. As a drawback, the parameter choice is non-trivial and
+the obtained results may vary depending on the pseudo-random number generator
+seed (stochastic implies randomness by definition).
+
+```{r tsne, results=F, message=F}
+
+# perplexity should be 3 * perplexity < nrow(X) - 1 (default=50)
+# theta is speed/accuracy ratio. 1 is max speed, 0 max accuracy (default=0.5)
+tsne_data = Rtsne(t(data), perplexity=3, theta=0.5) # NOTE: Transposed matrix!
+
+#Bind tsne values with metadata
+merged.tsne <- cbind(tsne_data$Y, meta)
+
+#Add colnames for tsne values
+colnames(merged.tsne)[1:2] <- c("tsne1", "tsne2")
+
+#Plot
+ggplot(merged.tsne, aes(x=tsne1, y=tsne2, colour=tissue.ch1)) +
+  geom_point()
+
+```
