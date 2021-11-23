@@ -1,5 +1,0 @@
-[2021-11-22 21:42:44] [INFO]    [OmnipathR] Initialized cache: `/Users/rosherbal/Library/Caches/OmnipathR`.
-[2021-11-22 21:42:44] [INFO]    [OmnipathR] Welcome to OmnipathR!
-[2021-11-22 21:42:46] [TRACE]   [OmnipathR] Loaded data from RDS `/Users/rosherbal/Library/Caches/OmnipathR/a7b21d9d80a3837a50268df16d168128fc1c6ede-1.rds`.
-[2021-11-22 21:42:46] [INFO]    [OmnipathR] Loaded from cache: `https://omnipathdb.org/interactions?genesymbols=yes&datasets=omnipath&organisms=9606&fields=sources,references,curation_effort&license=academic`
-[2021-11-22 21:42:53] [SUCCESS] [OmnipathR] Loaded 43729 interactions from cache.
