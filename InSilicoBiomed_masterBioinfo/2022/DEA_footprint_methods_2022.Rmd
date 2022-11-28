@@ -183,6 +183,10 @@ DEA_results = as.data.frame(limma::topTable(fit2,adjust.method = "BH",number = I
   dplyr::arrange(desc(abs(t))) %>% as_tibble()
 limma_genes = filter(DEA_results, adj.P.Val < 0.05)[[1]]
 
+DEA_results %>%
+  dplyr::rename(ID = Gene) %>%
+  write.csv("../data/DEA_lung_NC60.csv", row.names = F)
+
 DEA_results %>% filter(Gene%in%limma_genes)
 
 ```
@@ -191,12 +195,6 @@ By selecting the differential expressed genes, we can come back to our collabora
 How would you explain these results to them?
 
 We may conclude our analysis here, or we can go a step further and conduct a functional analysis on the data...
-
-```{r save-data}
-DEA_results %>%
-  dplyr::rename(ID = Gene) %>%
-  write.csv("../data/DEA_lung_NC60.csv", row.names = F)
-```
 
 ## Session Info Details
 
