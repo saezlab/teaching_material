@@ -1,0 +1,15 @@
+@/Users/carli/Projects/EIPP_2026_LLMs_carli/Lecture 1/LLMs basic/prd.json
+
+1. Find the highest-priority feature to work on and work only on that feature. 
+This should be the one YOU decide has the highest priority - not necessarily the first one
+2. Check with chrome that the feature is working as expected
+3. Update the PRD with the work that was done. 
+4. Append your progress to the progress.txt file (in /Users/carli/Projects/EIPP_2026_LLMs_carli/Lecture 1/LLMs basic/progress.txt). 
+Use this to leave a note for the next person working in the codebase. 
+5. Make a git commit of that feature (commit only if you make meaningful changes)
+
+ONLY WORK ON A SINGLE FEATURE.
+
+Remember that we aim at removing deprecated code to get a clean codebase. 
+
+You are in a ralph loop, use ralph-loops skill to get info. 

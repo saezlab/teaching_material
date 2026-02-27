@@ -1,0 +1,544 @@
+## Ralph Loop Progress — Transformer Playground
+
+### Iteration 1 — task-001: Scaffolding (2026-02-08)
+
+**What was done:**
+- Created the full directory structure: js/, js/steps/
+- Created transformer_playground.html with:
+  - Complete CSS design system (Distill.pub-inspired, ~400 lines of CSS)
+  - Google Fonts: Outfit (headings/UI), Source Serif 4 (body), JetBrains Mono (code/math)
+  - CSS variables for accent colors: DNA #2d7d9a (teal), Protein #8b5a3c (brown)
+  - Sticky header with DNA/Protein mode toggle (switches all accent colors via CSS vars)
+  - Sticky progress bar with 10 numbered dots (0-9), clickable with hover tooltips showing step titles
+  - Progress bar fill that animates as you advance
+  - 10 step sections with correct titles from plan.txt, fade-in animation
+  - Back/Next navigation: Back hidden on step 0, Next hidden on step 9
+  - TP global namespace initialized: window.TP = { steps: {}, viz: {}, state: {} }
+  - 15 script tags in correct dependency order
+- Created all 15 JS placeholder files:
+  - js/math-utils.js (with vocab constants, tokenize/detokenize stubs, dimension constants)
+  - js/weights.js (TP.WEIGHTS placeholder)
+  - js/transformer.js (computeTransformer stub)
+  - js/viz-helpers.js (6 placeholder viz functions on TP.viz)
+  - js/viz-specialized.js (5 placeholder specialized viz functions on TP.viz)
+  - js/steps/step-0-overview.js through step-9-recap.js (each registers init/render on TP.steps)
+
+**Verification:**
+- All 15 JS files pass Node.js syntax check
+- All 15 script src tags confirmed in correct order
+- Total project size: 172KB (well under 500KB limit)
+- Chrome extension unavailable for visual testing — visual QA deferred to next iteration
+
+**What to do next:**
+- task-002 (math-utils.js) is the next highest priority — it unblocks task-003 (weights) and task-004 (transformer forward pass)
+- Alternatively, task-005 (viz-helpers.js) could be done in parallel since it only depends on task-001
+- Visual testing of the scaffolding should be done when Chrome is available
+- CSS has comprehensive component styles pre-built (matrices, token rows, bar charts, flow diagrams, tabs, node diagrams, tooltips, etc.) — these are ready for the viz implementation tasks
+
+### Iteration 2 — task-002: Math Utilities (2026-02-08)
+
+**What was done:**
+- Fully implemented js/math-utils.js — replaced all placeholder stubs with working implementations
+- Linear algebra: matMul (with dimension validation), transpose, matAdd, addBias, scale
+- Vector operations: dot, magnitude, cosineSimilarity, argmax, zeros, zerosVec, oneHot, getRow, sliceCols, concatCols
+- Softmax: numerically stable (subtract max before exp) — handles extreme values like [1000, 1001] without NaN
+- ReLU: supports both 1D and 2D arrays
+- LayerNorm: normalizes across feature dimension with optional gamma/beta scale/shift params; also layerNormMatrix for 2D
+- Tokenize/detokenize: DNA (ATGC → 0-3) and Protein (20 amino acids, alphabetical order)
+- Constants: D_MODEL=8, N_HEADS=4, D_K=2, D_FF=32
+- Vocabulary maps: DNA_VOCAB, PROTEIN_VOCAB, DNA_VOCAB_REV, PROTEIN_VOCAB_REV
+
+**Verification:**
+- 31/31 unit tests pass in Node.js (all functions, edge cases, dimension errors)
+- All 7 PRD-specified browser tests pass in Chrome console
+- Zero console errors
+- Page loads correctly with scaffolding visible (verified via screenshot)
+
+**What to do next:**
+- task-003 (weights.js) is now unblocked — rigged weight matrices for DNA and protein modes
+- task-004 (transformer.js) depends on both task-002 and task-003
+- task-005 (viz-helpers.js) only depends on task-001 and could be done in parallel with task-003
+- Recommended priority: task-003 (weights) → task-004 (transformer forward pass) since these form the core computation pipeline
+- Note: the HTTP server is running at localhost:8765 for browser testing
+
+### Iteration 3 — task-003: Rigged Weights (2026-02-08)
+
+**What was done:**
+- Fully implemented js/weights.js with biologically meaningful rigged weight matrices
+- Seeded PRNG (seed=42 for DNA, seed=137 for protein) ensures full reproducibility
+- DNA embeddings (4x8): A-T complementary pair (cosine=-0.88), G-C complementary pair (cosine=-0.98)
+- Protein embeddings (20x8): organized by physicochemical axes:
+  - dims 0-1: hydrophobicity (L,V,I,F,W,M,A cluster at ~0.86 cosine)
+  - dims 2-3: charge (K,R at 0.94; D,E at 0.94; cross-class negative)
+  - dims 4-5: size, dims 6-7: polarity/special
+- 4 attention heads per mode:
+  - DNA: Head 0=complementary pairing, Head 1=local context, Head 2=purine-pyrimidine, Head 3=diffuse
+  - Protein: Head 0=hydrophobic clustering, Head 1=charge interactions, Head 2=local backbone, Head 3=diffuse
+- W_O (8x8) near-identity with mixing
+- FFN weights W1(8x32), b1(32), W2(32x8), b2(8) — seeded random
+- Output projection: DNA W_vocab(8x4) biased toward complement; Protein W_vocab(8x20) mirrors embedding structure
+- LayerNorm gamma=1, beta=0 (standard normalization)
+
+**Verification:**
+- 34/34 tests pass in Node.js (dimensions, cosine similarities, cluster properties)
+- All browser tests pass in Chrome console
+- Zero console errors
+- Page still loads correctly
+
+**What to do next:**
+- task-004 (transformer.js) is now unblocked — the full forward pass using math-utils and weights
+- task-005 (viz-helpers.js) is also unblocked (depends only on task-001)
+- Recommended: task-004 next — completes the core computation pipeline (tokenize → embed → PE → attention → FFN → output)
+
+### Iteration 4 — task-004: Transformer Forward Pass (2026-02-08)
+
+**What was done:**
+- Implemented js/transformer.js with the full TP.computeTransformer(sequence, mode) function
+- Complete pipeline: tokenize → embedding lookup → sinusoidal PE → 4-head self-attention → multi-head concat + W_O → residual + LayerNorm → FFN (ReLU) → residual + LayerNorm → output projection → softmax
+- Returns structured object with ALL 16 intermediates for step visualizations:
+  tokenIds, embeddings, positionalEncodings, positionedEmbeddings, qkvPerHead (4 heads, each with Q/K/V/scores/scaledScores/mask/attention/headOutput), multiHeadOutput, postResidual1, postLayerNorm1, ffnHidden, ffnOutput, postResidual2, postLayerNorm2, outputIdx, logits, probabilities, predictedToken
+- DNA mode: causal mask (attention[i][j]=0 for j>i), output from last position
+- Protein mode: bidirectional attention, output from masked position (floor(len/2))
+- Calibrated DNA output projection against actual final representations — all 4 complement predictions work: A→T, T→A, G→C, C→G
+- ATGCGATC → predicts G (38.3%) — complement of last base C, as required
+- Exposed TP.computePositionalEncoding for Step 3 sinusoidal visualization
+
+**Verification:**
+- 28/28 Node.js tests pass (shapes, attention properties, causal mask, probabilities, predictions)
+- All 11 PRD-specified Chrome tests pass
+- Zero console errors
+- DNA complement prediction verified for all 4 bases
+- Protein mode produces valid predictions with bidirectional attention
+
+**What to do next:**
+- The core computation engine is now COMPLETE (task-001 through task-004 all resolved)
+- Next priority should be task-005 (viz-helpers.js) — reusable visualization components
+- This unblocks task-006 (viz-specialized.js) and all step content tasks (task-007 through task-013)
+- Alternative: could start on step content tasks that only need basic viz helpers
+- HTTP server still running at localhost:8765
+
+### Iteration 5 — task-005: Visualization Helpers (2026-02-08)
+
+**What was done:**
+- Fully implemented js/viz-helpers.js with 6 core reusable viz components + 2 color mapping functions
+- Color mapping: valueToBlueWhiteRed (negative→white→positive) and valueToGreenScale (5-stop cream→green for attention)
+- renderMatrix: CSS grid layout, two color scales, row/col labels, hover tooltips (4 decimal places), clickable cells with callback, highlight rows for identical tokens
+- renderTokenRow: colored blocks with token chars and IDs, [MASK] overlay support, DNA teal / protein brown color variants
+- renderBarChart: flexbox bars with CSS transition animation (staggered), value labels above bars, highlight index, tooltips on hover
+- renderAnalogyBox: styled callout with "Biology Analogy" header via ::before pseudo-element
+- renderFormulaBlock: JetBrains Mono with innerHTML for sub/sup support
+- createPlayButton: pill button, disables during playback, shows "Replay" after done() callback
+- Global tooltip system (single shared tooltip element, follows mouse)
+
+**Verification:**
+- All 7 components rendered in Chrome with test data
+- Screenshot confirms Distill.pub aesthetic: clean gradients, proper typography, elegant spacing
+- Blue-white-red and cream-to-green color scales both render correctly
+- Bar chart animations smooth
+- Zero console errors
+
+**What to do next:**
+- task-006 (viz-specialized.js) is now unblocked — SVG arrows, sinusoidal canvas, flow diagram, node diagram, distribution bars
+- task-007+ (step content) are also partially unblocked — steps that only need basic viz can start
+- Recommended: task-006 next to complete the full visualization toolkit before step content
+
+### Iteration 6 — task-006: Specialized Visualizations (2026-02-08)
+
+**What was done:**
+- Fully implemented js/viz-specialized.js — replaced all 5 placeholder stubs with working implementations
+- renderArrows: SVG overlay with quadratic bezier curves between token positions
+  - Thickness (1-6px) and opacity (0.25-1.0) proportional to attention weight
+  - Self-attention loops use cubic bezier
+  - Reads accent color from CSS --accent variable
+  - Auto-removes previous SVG before drawing new one
+  - Threshold parameter skips negligible weights (<0.02)
+- renderSinusoidalCanvas: HiDPI canvas (devicePixelRatio-aware) showing PE waves
+  - 8 colored curves (distinct palette), smooth interpolation (10x oversampling)
+  - Proper axes with y-labels (-1.0/0.0/1.0), x-labels (position indices), dashed zero line
+  - Color legend showing dimension index, sin/cos function type, frequency index
+- renderFlowDiagram: vertical pipeline flow chart
+  - Supports 3 highlight modes: single index, 'all', or highlightUpTo
+  - Clickable boxes with callback, uses existing CSS (.tp-flow, .tp-flow-box, .tp-flow-arrow)
+- renderNodeDiagram: FFN network diagram with Play animation
+  - 3 columns: Input (d_model), Hidden (ReLU, subset shown), Output (d_model)
+  - '... +N more' indicator for remaining hidden nodes
+  - Staggered Play animation: input lights → hidden lights/darks (from actual activations) → output lights
+  - Uses createPlayButton with Replay support
+- renderDistributionBars: before/after LayerNorm comparison
+  - Side-by-side charts with zero-line reference
+  - Positive bars extend up, negative bars extend down
+  - Dimension labels and μ/σ² statistics below each group
+  - Different colors: accent for "Before", green for "After"
+
+**Verification:**
+- All 5 components rendered in Chrome with real transformer computation data
+- Flow diagram: 8 boxes, correct highlighting, 'all' mode passes (8/8 highlighted)
+- Sinusoidal canvas: 8 curves with different frequencies, clear legend
+- Node diagram: 28 nodes (8+12+8), Play animation → 22 lit + 6 dark (matching actual ReLU zeros)
+- Distribution bars: Before μ=-0.88 σ²=0.36, After μ=-0.00 σ²=1.09 (proper normalization)
+- Arrows: self-loop for causal token 0, multi-arrow fan for token 7 (full context)
+- Zero console errors throughout
+- Total project size: 236KB (well under 500KB limit)
+- HTTP server needed for testing (python3 -m http.server 8765 from 'Lecture 1/LLMs basic/')
+
+**What to do next:**
+- The FULL visualization toolkit is now COMPLETE (tasks 001-006 all resolved)
+- ALL step content tasks (task-007 through task-013) are now unblocked
+- Recommended priority: task-007 (Steps 0+1) — these are the entry point the user sees first
+  - Step 0 uses renderFlowDiagram, renderAnalogyBox
+  - Step 1 uses renderTokenRow, renderFormulaBlock, input field + validation + recomputation
+- After task-007, task-008 (Steps 2+3), task-012 (Step 8), and task-011 (Steps 6+7) can proceed
+- task-009 (Step 4) is the most complex step — save for when the simpler steps are done
+- Note: HTTP server at localhost:8765 is needed for browser testing
+
+### Iteration 7 — task-007: Steps 0 & 1 Content (2026-02-08)
+
+**What was done:**
+- Implemented js/steps/step-0-overview.js — Step 0: Overview & Motivation
+  - Three paragraphs: long-range dependencies in biological sequences, RNN→LSTM→Attention history, bioinformatics relevance (ESM-2, Nucleotide Transformer, AlphaFold)
+  - Biology analogy callout: ribosome (sequential RNN) vs chaperone complex (parallel transformer)
+  - Pipeline flow chart: 8 labeled boxes using renderFlowDiagram, highlights up to currentStep
+  - Click navigation: clicking any box jumps to the corresponding step via TP.goToStep()
+  - Re-render on revisit updates flow chart highlights based on progress
+- Implemented js/steps/step-1-tokenization.js — Step 1: Input & Tokenization
+  - Explanatory text about tokenization, k-mer tokenization, special tokens
+  - Biology analogy: ribosome reading mRNA codons → tokenizer mapping sequences to IDs
+  - Editable input field with mode-dependent defaults (DNA: 'ATGCGATC', Protein: 'MAGLVKRD')
+  - Input validation: filters invalid characters, enforces 4-10 token length, visual error feedback
+  - Token row visualization via renderTokenRow with [MASK] overlay for protein at floor(len/2)
+  - Formula block showing Input, Tokens, Token IDs, Vocabulary size
+  - Mode-dependent note explaining DNA/Decoder vs Protein/Encoder approach
+  - On input change: recomputes full transformer via TP.computeTransformer(), stores in state.result
+  - init() pre-computes results so downstream steps have data even before Step 1 is visited
+
+**Verification:**
+- Step 0: Three paragraphs render with correct typography, analogy box styled, flow chart shows 8 boxes
+- Step 1 DNA: Input 'ATGCGATC', tokens [0,1,2,3,2,0,1,3], formula block correct
+- Step 1 Protein: 'MAGLVKRD' with [MASK] at position 4, brown accent
+- Input validation: 'X' filtered out, short input shows "Need at least 4 tokens"
+- Mode toggle: resets to default sequence, recomputes correctly
+- 'AAAA' → [0,0,0,0] works correctly
+- state.result populated with all intermediates for downstream steps
+- Zero console errors
+
+**What to do next:**
+- task-008 (Steps 2+3: Embedding + Positional Encoding) is the natural next priority
+  - Step 2 uses renderMatrix for embedding lookup table
+  - Step 3 uses renderSinusoidalCanvas for positional encoding visualization
+- task-009 (Step 4: Self-Attention) is the most complex step — defer until simpler steps done
+- task-010 (Step 5: Multi-Head Attention) depends on task-009
+- task-011 (Steps 6+7), task-012 (Step 8), task-013 (Step 9) can be done independently
+
+### Iteration 8 — task-008: Steps 2 & 3 Content (2026-02-08)
+
+**What was done:**
+- Implemented js/steps/step-2-embedding.js — Step 2: Embedding Lookup
+  - Full embedding matrix heatmap (4×8 DNA / 20×8 protein) using renderMatrix with blue-white-red scale
+  - Vocab row labels (A/T/G/C for DNA, 20 amino acids for protein), dimension column labels (d0-d7)
+  - Highlighted rows in full matrix for tokens present in current sequence
+  - Sequence embeddings matrix with position:token row labels (e.g., "0:A", "1:T")
+  - Identical-token row highlighting with outline + annotation note listing duplicate positions
+  - Text about dense vectors, learned representations vs BLOSUM62
+  - Biology analogy: BLOSUM62 as hand-crafted substitution matrix vs learned embeddings
+  - Formula block: x_embed = E[token_id], E ∈ R^{|V|×d_model}, onehot equivalence
+- Implemented js/steps/step-3-positional.js — Step 3: Positional Encoding
+  - Sinusoidal wave canvas via renderSinusoidalCanvas showing 8 PE curves with color legend
+  - Side-by-side Before (raw embeddings) and After (embeddings + PE) matrices
+  - Identical-token highlighting with annotation explaining symmetry-breaking
+  - Text about position agnosticism, sinusoidal design, modern alternatives (RoPE, ALiBi)
+  - Biology analogy: AUG at position 1 = start signal vs AUG at position 150 = methionine; cysteine position determines disulfide bridges
+  - Formula block: PE sin/cos formulas, wavelength range
+- Fixed bug in transformer_playground.html setMode():
+  - Mode toggle was not calling TP.computeTransformer() after changing sequence/mode
+  - This caused stale state.result when switching modes (e.g., protein IDs showing DNA values)
+  - Added recomputation call before re-render in setMode()
+
+**Verification:**
+- Step 2 DNA: 4×8 full matrix (32 cells) with labels A/T/G/C, 8×8 sequence matrix with highlights
+- Step 2 Protein: 20×8 full matrix (160 cells) with all 20 amino acid labels
+- Step 3 DNA: canvas with 8 curves, before/after matrices, G at positions 2,4 identical before but different after PE
+- Step 3 Protein: canvas renders, MAGLVKRD has 0 false duplicate annotations (all unique tokens)
+- Mode toggle correctly recomputes: protein IDs [10,0,5,9,17,8,14,2] now correct
+- Zero console errors throughout all mode switches and step navigation
+
+**What to do next:**
+- task-009 (Step 4: Self-Attention) is the most complex step — 4 animated sub-stages with Play button
+- task-011 (Steps 6+7: Residual + FFN) is simpler, could be done first
+- task-012 (Step 8: Output) is also independent and relatively straightforward
+- Recommended: task-012 or task-011 next (simpler), then tackle task-009
+
+### Iteration 9 — task-009: Step 4 Self-Attention (2026-02-08)
+
+**What was done:**
+- Implemented js/steps/step-4-attention.js — Step 4: Self-Attention Deep Dive
+  - 4 animated sub-stages revealing sequentially with CSS fade-in transitions:
+    - Stage 1: Q, K, V matrices side-by-side (8×2 each), blue-white-red, dimension labels k0/k1
+    - Stage 2: Raw scores QK^T (8×8), blue-white-red
+    - Stage 3: Scaled (÷√d_k) + causal mask — custom renderMaskedMatrix renders masked cells as dark (#2a2a2a)
+    - Stage 4: Softmax attention heatmap, cream-to-green, clickable cells
+  - Clickable heatmap: clicking any cell draws SVG attention arrows on token row below via viz.renderArrows
+  - Play button triggers sequential animation; auto-runs on first render so step isn't empty
+  - Token row with position:relative wrapper and 90px padding for arrow SVG overlay
+  - Mode-dependent text: DNA explains causal mask, protein explains bidirectional attention
+  - Biology analogy: attention matrix as residue contact map, DCA/EVcouplings comparison
+  - Formula block: Q/K/V projections, scaling, masking, softmax, output
+
+**Verification:**
+- Q/K/V matrices: 8×2 = 16 cells each ✓
+- Scores/masked/attention: 8×8 = 64 cells each ✓
+- DNA causal mask: 28 dark cells (upper triangle of 8×8) ✓
+- Attention row sums: all 8 rows = 1.0000 ✓
+- Click cell → SVG arrows appear (8 paths for last token attending to all positions) ✓
+- Protein mode: 0 dark cells (no causal mask) ✓
+- Zero console errors ✓
+
+**Note:** Browser caching of JS files is aggressive. During testing, had to dynamically inject script tags with cache-busting query params. For future iterations: may want to add cache-busting to HTML script tags, or use Ctrl+Shift+R for hard reload.
+
+**What to do next:**
+- task-010 (Step 5: Multi-Head Attention) is now unblocked — depends on task-009 which is resolved
+- task-011 (Steps 6+7: Residual + FFN) — medium severity, deps met
+- task-012 (Step 8: Output) — high severity, deps met
+- task-013 (Step 9: Recap) — medium severity, deps met
+- Recommended: task-010 next (unblocked by this iteration, completes the attention pipeline)
+
+### Iteration 10 — task-010: Step 5 Multi-Head Attention (2026-02-08)
+
+**What was done:**
+- Implemented js/steps/step-5-multihead.js — Step 5: Multi-Head Attention
+  - 4-tab interface using existing .tp-tabs/.tp-tab CSS classes, tab switching re-renders heatmap and token row
+  - Per-head attention heatmap (cream-to-green via renderMatrix greenScale), clickable cells trigger renderArrows
+  - Per-head descriptive labels, mode-conditional:
+    - DNA: 'Complementary base pairing', 'Local/sequential context', 'Purine-pyrimidine patterns', 'Diffuse/distributed'
+    - Protein: 'Hydrophobic clustering', 'Charge interactions', 'Local backbone context', 'Diffuse/distributed'
+  - Token row with position:relative wrapper for SVG arrow overlay
+  - Concatenation + W_O projection diagram: 4 colored blocks (green/teal/orange/purple) → striped concat bar → W_O → d_model output bar, with dimension annotation
+  - Text about multi-head rationale, d_k reduction, ESM-2 head specialization
+  - Biology analogy: non-covalent interaction types (H-bonds, vdW, hydrophobic, electrostatic, π-stacking)
+  - Formula block: head_i, MultiHead concat, W_O dimensions, total parameters
+
+**Verification:**
+- 4 tabs visible with clean styling ✓
+- DNA Head 1: 'Complementary base pairing' ✓
+- DNA Head 2: 'Local/sequential context' ✓
+- Click cells → arrows work (4 paths for row 3 in causal DNA mode) ✓
+- Protein mode: Head 1 'Hydrophobic clustering', labels update correctly ✓
+- Concatenation diagram renders with H1-H4 blocks and d_model output ✓
+- Zero console errors ✓
+
+**What to do next:**
+- task-011 (Steps 6+7: Residual + FFN) — medium severity, deps met
+- task-012 (Step 8: Output) — high severity, deps met
+- task-013 (Step 9: Recap) — medium severity, deps met
+- Recommended: task-012 (high severity, Output step is the payoff of the whole tutorial)
+
+### Iteration 11 — task-012: Step 8 Output & Prediction (2026-02-08)
+
+**What was done:**
+- Implemented js/steps/step-8-output.js — Step 8: Output & Prediction
+  - Probability bar chart: 4 bars (DNA: A/T/G/C) or 20 bars (Protein: all amino acids) via renderBarChart
+  - Animated bar growth with staggered transitions, highlighted top prediction bar
+  - Probability values displayed above each bar
+  - Token row showing input + prediction:
+    - DNA: predicted token appended to end of sequence
+    - Protein: [MASK] position replaced with predicted token
+  - Predicted position highlighted with accent outline
+  - Probability confidence badge (e.g., "G: 38.3% confidence")
+  - Dynamic biological sensibility caption:
+    - DNA: explains Watson-Crick complement relationship (e.g., "G is the complement of C")
+    - Protein: compares physicochemical classes of masked vs predicted residue
+    - Handles both same-class and cross-class predictions with appropriate text
+  - AA_GROUPS classification: hydrophobic, charged_pos, charged_neg, polar, special
+  - DNA_COMPLEMENT map for caption generation
+  - Text: output projection into vocab space, decoder vs encoder objectives, cross-entropy loss
+  - Biology analogy: gene product, replication fork prediction, structural compatibility
+  - Formula block: logits, softmax, cross-entropy, temperature scaling
+  - Registers TP.steps[8] = { init, render }
+
+**Verification:**
+- DNA mode: 4 bars with A/T/G/C labels, G highlighted at 38.3% (complement of C) ✓
+- Token row: ATGCGATC + predicted G with accent outline ✓
+- Caption: "G is the Watson-Crick complement of the last base C" ✓
+- Protein mode: 20 bars with all amino acid labels ✓
+- R predicted at 8.1% to replace masked V at position 4 ✓
+- Caption: "R (positively charged) ... replace the masked V (hydrophobic)" — correctly identifies cross-class ✓
+- Formula block shows |V|=4 (DNA) / |V|=20 (protein) ✓
+- Zero console errors ✓
+
+**What to do next:**
+- task-011 (Steps 6+7: Residual + FFN) — medium severity, deps met, the last missing content steps
+- task-013 (Step 9: Recap) — medium severity, deps met
+- task-014 (Integration) — depends on all content steps being done
+- Recommended: task-011 next (completes all visualization steps before recap)
+
+### Iteration 12 — task-011: Steps 6 & 7 Content (2026-02-08)
+
+**What was done:**
+- Implemented js/steps/step-6-residual.js — Step 6: Residual Connections & Layer Norm
+  - Text about residual connections (skip connections, delta learning) and LayerNorm
+  - Biology analogy: homeostatic feedback mechanisms
+  - Animated flow diagram in a card: X → fork into skip path + Multi-Head Attention → + addition → LayerNorm → output
+  - Play button triggers sequential glow animation across 5 phases (600ms intervals)
+  - Before/After distribution bars for both sub-layers:
+    - Sub-layer 1 (attention): postResidual1 vs postLayerNorm1
+    - Sub-layer 2 (FFN): postResidual2 vs postLayerNorm2
+  - Uses representative token: last position for DNA, mask position for protein
+  - Formula block: residual equation, LayerNorm formula, γ/β params, full block summary
+- Implemented js/steps/step-7-ffn.js — Step 7: Feed-Forward Network
+  - Text about FFN independence, expansion/compression, key-value memories
+  - Biology analogy: post-translational modifications
+  - Node diagram via renderNodeDiagram: 8 input → 12 hidden (representative) → 8 output
+  - "... +20 more" indicator for remaining hidden nodes
+  - Play animation uses actual ffnHidden activations to determine lit vs dark nodes
+  - Activation summary box: total neurons, ReLU-zeroed count, sparsity %, max activation
+  - Formula block: FFN equation, weight dimensions, expansion factor, param count, GLU variant
+
+**Verification:**
+- Step 6 DNA: token 7:C, Before μ=0.54/σ²=0.36, After μ=-0.00/σ²=1.00 ✓
+- Step 6 Protein: token 4:V, Before μ=0.28/σ²=0.29, After μ=-0.00/σ²=1.00 ✓
+- Step 6 Play animation: sequential glow (input → fork → add → norm → output) ✓
+- Step 7 DNA: 17/32 ReLU zeroed (53% sparse), max act=1.086 ✓
+- Step 7 Protein: 13/32 ReLU zeroed (41% sparse), max act=0.922 ✓
+- Step 7 Play animation: input lit → hidden lit/dark → output lit ✓
+- Zero console errors ✓
+
+**What to do next:**
+- task-013 (Step 9: Recap) — medium severity, deps met
+- task-014 (Integration) — high severity, depends on task-013
+- Recommended: task-013 next (last content step, then final integration)
+
+### Iteration 13 — task-013: Step 9 Recap & Real Models (2026-02-08)
+
+**What was done:**
+- Implemented js/steps/step-9-recap.js — Step 9: From Toy to Reality
+  - Summary paragraph recapping all 8 computational steps
+  - Pipeline flow chart reusing renderFlowDiagram with 'all' highlight mode
+  - All 8 boxes clickable → navigate to corresponding step (Tokenization→1, Embedding→2, etc.)
+  - "What Changes at Scale?" section: layer-wise representation hierarchy in ESM-2, pretraining on UniRef/GenBank, fine-tuning applications
+  - Styled comparison table: 6 metrics × 6 models (Toy/ESM-2/Nucleotide Transformer/DNABERT-2/AlphaFold Evoformer)
+  - Toy column accent-highlighted, header row with accent border, alternating row backgrounds
+  - overflow-x: auto wrapper for mobile/narrow screens
+  - Biology analogy: E. coli protein (toy) vs human proteome (real) with specific numbers
+  - Parameter count formula with worked example: Toy ≈ 880, ESM-2 ≈ 650M
+  - Closing accent-colored banner with conclusion statement
+  - Registers TP.steps[9] = { init, render }
+
+**Verification:**
+- 8 flow boxes, all highlighted ✓
+- Click "Embedding" → navigates to Step 2 ✓
+- Table: 6 rows × 6 columns, all values match plan.txt ✓
+- Table styled cleanly with accent column ✓
+- Biology analogy renders ✓
+- Formula block with parameter calculations ✓
+- Closing banner renders ✓
+- No "Next" button on Step 9 (correct edge case) ✓
+- Zero console errors ✓
+
+**What to do next:**
+- task-014 (Integration) — high severity, all dependencies now met
+- ALL 10 step content files (0-9) are now implemented
+- Final integration: end-to-end testing, mode toggle, input changes, edge cases, file:// protocol, size check
+
+### Iteration 14 — task-014: Final Integration & QA (2026-02-08)
+
+**What was done:**
+- Comprehensive end-to-end QA pass of the entire Transformer Playground
+- Cleanup: removed 10 deprecated placeholder `<p class="tp-placeholder">Content loading...</p>` elements from transformer_playground.html — these were dead code since all step JS files fully replace innerHTML
+
+**QA Results — ALL PASSING:**
+- Fresh load: zero console errors, all 15 JS files load
+- window.TP fully populated: math functions, WEIGHTS, computeTransformer, viz.*, steps[0-9]
+- DNA mode walkthrough (Steps 0-9): all visualizations render correctly
+  - Step 0: flow chart, analogy box, text ✓
+  - Step 1: input field, token row, validation, formula ✓
+  - Step 2: embedding matrices (4×8 + 8×8) with highlights ✓
+  - Step 3: sinusoidal canvas, Before/After matrices ✓
+  - Step 4: 4-stage attention animation, clickable heatmap → arrows ✓
+  - Step 5: 4-tab multi-head, per-head labels, concat diagram ✓
+  - Step 6: residual flow animation, Before/After distribution bars ✓
+  - Step 7: FFN node diagram, ReLU activation summary ✓
+  - Step 8: probability bars, prediction token, biological caption ✓
+  - Step 9: pipeline recap, comparison table, closing ✓
+- Protein mode walkthrough (Steps 0-9): all update correctly with brown accent
+- Mode toggle: all steps re-render with correct mode-specific content
+- Edge cases tested:
+  - 4-token input (ATGC): all steps OK ✓
+  - 10-token input (ATGCGATCAT): all steps OK, no overflow ✓
+  - Rapid mode toggling (10 switches): stable, zero errors ✓
+  - Rapid step switching: stable ✓
+- Back/Next: Back hidden on Step 0, Next hidden on Step 9 ✓
+- Progress bar: dots clickable, fill animates ✓
+- No fetch/XHR/import calls: file:// protocol compatible ✓
+- Total size: 328KB (under 500KB limit) ✓
+- Zero console errors throughout all testing ✓
+
+**Project Status:**
+- ALL 14 tasks (001-014) are now RESOLVED
+- The Transformer Playground is COMPLETE
+- 15 JS files + 1 HTML file, total ~328KB
+- Ready for student use as a 1-hour interactive transformer architecture tutorial
+
+### Iteration 15 — Cleanup: Refactor .tp-table CSS (2026-02-08)
+
+**What was done:**
+- Identified unused `.tp-table` CSS class: was defined in transformer_playground.html but step-9-recap.js used inline styles instead
+- Refactored step-9-recap.js to use `.tp-table` CSS class instead of ~30 lines of inline styles
+  - Table element gets `className = 'tp-table'` instead of long `style.cssText`
+  - Highlight column uses `.tp-table-highlight` class instead of per-cell inline styles
+  - Alternating row backgrounds handled by CSS `nth-child(even)` instead of JS
+- Updated `.tp-table` CSS in transformer_playground.html to match actual visual requirements:
+  - Mono font, compact padding, accent-colored header border
+  - Added `nth-child(even)` alternating row backgrounds
+  - Added `background: var(--accent-light)` to `.tp-table-highlight`
+- Net result: -7 lines (24 insertions, 28 deletions) — cleaner separation of concerns
+
+**Verification:**
+- Chrome: table renders correctly in DNA (teal) and Protein (brown) modes
+- All 20 step renders (10 DNA + 10 Protein) pass with zero console errors
+- Highlight column correctly shows accent color in both modes
+
+### Iteration 16 — Cleanup: Remove debug logging, deduplicate utility functions (2026-02-08)
+
+**What was done:**
+- Removed `console.log('[TP] Transformer Playground initialized...')` from transformer_playground.html (debug output in production code)
+- Extracted duplicate `getDimLabels()` and `getTokenLabels()` into shared utilities on `TP` namespace in math-utils.js
+  - `TP.getDimLabels()` — generates ['d0','d1',...,'d7'] labels (was duplicated in step-2-embedding.js and step-3-positional.js)
+  - `TP.getTokenLabels(tokens)` — generates ['0:A','1:T',...] labels (was duplicated in step-4-attention.js and step-5-multihead.js)
+- Updated 4 step files to use shared functions: `var getDimLabels = TP.getDimLabels;` / `var getTokenLabels = TP.getTokenLabels;`
+
+**Verification:**
+- All 20 step renders (10 DNA + 10 Protein) pass with zero errors
+- Shared functions produce correct output: getDimLabels()→["d0"..."d7"], getTokenLabels(["A","T","G"])→["0:A","1:T","2:G"]
+- No console.log statements remain in codebase
+
+### Iteration 17 — Cleanup: Extract .tp-viz-title CSS class from 9 inline styles (2026-02-08)
+
+**What was done:**
+- Created `.tp-viz-title` CSS class in transformer_playground.html for the repeated viz section title pattern
+- Replaced 9 inline style assignments across 8 files with `className = 'tp-viz-title'`:
+  - viz-helpers.js (1): matrix title
+  - step-4-attention.js (2): matrix title + sub-stage title
+  - step-5-multihead.js (1): concat diagram title
+  - step-6-residual.js (2): distribution title + sub-layer 2 title
+  - step-7-ffn.js (1): node diagram title
+  - step-8-output.js (1): result token row title
+  - step-9-recap.js (1): pipeline flow chart title
+- Unified 0.8rem/0.85rem variants to 0.85rem (imperceptible visual difference)
+
+**Verification:**
+- 18 .tp-viz-title elements found in rendered page with correct computed styles
+- All 20 step renders (10 DNA + 10 Protein) pass with zero errors
+
+### Iteration 18 — Final Audit: No Further Cleanup Needed (2026-02-08)
+
+**Audit results:**
+- Zero console.log/warn/error/debug statements in codebase
+- Zero TODO/FIXME/HACK/XXX comments
+- All 14 PRD tasks resolved
+- Major cleanup complete across iterations 14-17:
+  - Removed 10 deprecated placeholder elements
+  - Refactored .tp-table from inline styles to CSS class
+  - Removed debug console.log
+  - Extracted shared getDimLabels/getTokenLabels utilities (4 duplicates → 1 shared)
+  - Extracted .tp-viz-title CSS class (9 inline styles → 1 CSS class)
+- Remaining inline styles are all unique/contextual — not worth extracting
+- No commit this iteration (no meaningful changes)

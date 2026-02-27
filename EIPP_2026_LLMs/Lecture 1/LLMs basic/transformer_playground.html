@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Transformer Playground</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <style>
+    /* ============================================
+       CSS DESIGN SYSTEM — Distill.pub-inspired
+       ============================================ */
+
+    :root {
+      /* Accent colors — switched by mode toggle */
+      --accent: #2d7d9a;
+      --accent-light: rgba(45, 125, 154, 0.12);
+      --accent-hover: rgba(45, 125, 154, 0.08);
+
+      /* Neutral palette */
+      --bg: #fafaf8;
+      --card-bg: #ffffff;
+      --card-border: #e8e6e1;
+      --card-shadow: rgba(0, 0, 0, 0.04);
+      --text-primary: #1a1a1a;
+      --text-secondary: #555555;
+      --text-muted: #888888;
+      --divider: #eae8e3;
+
+      /* Typography */
+      --font-display: 'Outfit', sans-serif;
+      --font-body: 'Source Serif 4', serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      /* Spacing */
+      --space-xs: 4px;
+      --space-sm: 8px;
+      --space-md: 16px;
+      --space-lg: 24px;
+      --space-xl: 32px;
+      --space-2xl: 48px;
+      --space-3xl: 64px;
+
+      /* Layout */
+      --max-width: 780px;
+      --border-radius: 8px;
+      --border-radius-sm: 4px;
+    }
+
+    /* --- Reset & Base --- */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      font-size: 17px;
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      font-family: var(--font-body);
+      color: var(--text-primary);
+      background: var(--bg);
+      line-height: 1.65;
+      min-height: 100vh;
+    }
+
+    /* --- Typography --- */
+    h1, h2, h3, h4, h5, h6 {
+      font-family: var(--font-display);
+      line-height: 1.3;
+      color: var(--text-primary);
+    }
+
+    h1 { font-size: 2rem; font-weight: 700; }
+    h2 { font-size: 1.5rem; font-weight: 600; letter-spacing: -0.01em; }
+    h3 { font-size: 1.15rem; font-weight: 600; }
+
+    p { margin-bottom: 1em; }
+
+    code, .mono {
+      font-family: var(--font-mono);
+      font-size: 0.88em;
+    }
+
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover { text-decoration: underline; }
+
+    /* --- Header --- */
+    .tp-header {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--card-border);
+      padding: var(--space-md) var(--space-lg);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .tp-header-inner {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--space-md);
+    }
+
+    .tp-header-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .tp-header-title .tp-icon {
+      font-size: 1.3rem;
+    }
+
+    /* --- Mode Toggle --- */
+    .tp-mode-toggle {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      user-select: none;
+    }
+
+    .tp-mode-toggle label {
+      cursor: pointer;
+      padding: 5px 12px;
+      border-radius: 20px;
+      transition: all 0.25s ease;
+      border: 1.5px solid transparent;
+    }
+
+    .tp-mode-toggle label:hover {
+      background: var(--accent-hover);
+    }
+
+    .tp-mode-toggle label.active {
+      background: var(--accent-light);
+      color: var(--accent);
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .tp-mode-toggle input[type="radio"] {
+      display: none;
+    }
+
+    /* --- Progress Bar --- */
+    .tp-progress {
+      background: var(--card-bg);
+      border-bottom: 1px solid var(--card-border);
+      padding: var(--space-sm) var(--space-lg);
+      position: sticky;
+      top: 53px;
+      z-index: 99;
+    }
+
+    .tp-progress-inner {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: relative;
+    }
+
+    .tp-progress-line {
+      position: absolute;
+      top: 50%;
+      left: 16px;
+      right: 16px;
+      height: 2px;
+      background: var(--divider);
+      transform: translateY(-50%);
+      z-index: 0;
+    }
+
+    .tp-progress-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      background: var(--accent);
+      transition: width 0.4s ease;
+      border-radius: 1px;
+    }
+
+    .tp-dot {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 2px solid var(--divider);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      position: relative;
+      z-index: 1;
+    }
+
+    .tp-dot:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+      transform: scale(1.1);
+    }
+
+    .tp-dot.completed {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .tp-dot.current {
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-light);
+    }
+
+    .tp-dot-tooltip {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      white-space: nowrap;
+      background: var(--text-primary);
+      color: white;
+      font-family: var(--font-display);
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: var(--border-radius-sm);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s;
+    }
+
+    .tp-dot:hover .tp-dot-tooltip {
+      opacity: 1;
+    }
+
+    /* --- Main Content --- */
+    .tp-main {
+      max-width: var(--max-width);
+      margin: 0 auto;
+      padding: var(--space-2xl) var(--space-lg) var(--space-3xl);
+    }
+
+    /* --- Step Container --- */
+    .tp-step {
+      display: none;
+      animation: fadeIn 0.35s ease;
+    }
+
+    .tp-step.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .tp-step-label {
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: var(--space-xs);
+    }
+
+    .tp-step-title {
+      font-size: 1.65rem;
+      margin-bottom: var(--space-lg);
+      color: var(--text-primary);
+    }
+
+    .tp-step-content {
+      color: var(--text-primary);
+      line-height: 1.72;
+    }
+
+    .tp-step-content p {
+      margin-bottom: 1.1em;
+    }
+
+    /* --- Cards --- */
+    .tp-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--border-radius);
+      padding: var(--space-lg);
+      margin: var(--space-lg) 0;
+      box-shadow: 0 1px 3px var(--card-shadow);
+    }
+
+    /* --- Analogy Box --- */
+    .tp-analogy {
+      background: var(--accent-light);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 var(--border-radius) var(--border-radius) 0;
+      padding: var(--space-md) var(--space-lg);
+      margin: var(--space-lg) 0;
+      font-style: italic;
+      color: var(--text-secondary);
+      line-height: 1.65;
+    }
+
+    .tp-analogy::before {
+      content: 'Biology Analogy';
+      display: block;
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-style: normal;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: var(--space-xs);
+    }
+
+    /* --- Formula Block --- */
+    .tp-formula {
+      background: #f5f4f0;
+      border-radius: var(--border-radius);
+      padding: var(--space-md) var(--space-lg);
+      margin: var(--space-lg) 0;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.9;
+      color: var(--text-primary);
+      overflow-x: auto;
+    }
+
+    /* --- Matrix / Heatmap --- */
+    .tp-matrix-container {
+      margin: var(--space-lg) 0;
+      overflow-x: auto;
+    }
+
+    .tp-matrix {
+      display: inline-grid;
+      gap: 1px;
+      background: var(--card-border);
+      border-radius: var(--border-radius-sm);
+      overflow: hidden;
+    }
+
+    .tp-matrix-cell {
+      width: 38px;
+      height: 38px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      cursor: default;
+      transition: transform 0.15s;
+      position: relative;
+    }
+
+    .tp-matrix-cell:hover {
+      transform: scale(1.15);
+      z-index: 2;
+    }
+
+    .tp-matrix-label {
+      font-family: var(--font-display);
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+    }
+
+    /* --- Token Row --- */
+    .tp-token-row {
+      display: flex;
+      gap: 4px;
+      margin: var(--space-md) 0;
+      flex-wrap: wrap;
+    }
+
+    .tp-token {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .tp-token-block {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--border-radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-mono);
+      font-size: 1rem;
+      font-weight: 500;
+      color: white;
+      background: var(--accent);
+      transition: all 0.25s;
+    }
+
+    .tp-token-id {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    .tp-token-block.masked {
+      background: var(--text-muted);
+      position: relative;
+    }
+
+    .tp-token-block.masked::after {
+      content: '[M]';
+      font-size: 0.7rem;
+    }
+
+    /* --- Bar Chart --- */
+    .tp-bar-chart {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 180px;
+      padding: var(--space-md) 0;
+    }
+
+    .tp-bar-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      flex: 1;
+      min-width: 28px;
+      height: 100%;
+      justify-content: flex-end;
+    }
+
+    .tp-bar {
+      width: 100%;
+      max-width: 36px;
+      background: var(--accent);
+      border-radius: var(--border-radius-sm) var(--border-radius-sm) 0 0;
+      transition: height 0.6s ease;
+      min-height: 2px;
+      opacity: 0.75;
+    }
+
+    .tp-bar.highlight {
+      opacity: 1;
+    }
+
+    .tp-bar-label {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      margin-top: var(--space-xs);
+      text-align: center;
+    }
+
+    /* --- Play Button --- */
+    .tp-play-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-sm);
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--accent);
+      background: var(--accent-light);
+      border: 1.5px solid var(--accent);
+      border-radius: 24px;
+      padding: 8px 20px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tp-play-btn:hover:not(:disabled) {
+      background: var(--accent);
+      color: white;
+    }
+
+    .tp-play-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* --- Tooltip --- */
+    .tp-tooltip {
+      position: fixed;
+      background: var(--text-primary);
+      color: white;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      padding: 4px 10px;
+      border-radius: var(--border-radius-sm);
+      pointer-events: none;
+      z-index: 200;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .tp-tooltip.visible {
+      opacity: 1;
+    }
+
+    /* --- Navigation --- */
+    .tp-nav {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: var(--space-2xl);
+      padding-top: var(--space-lg);
+      border-top: 1px solid var(--divider);
+    }
+
+    .tp-nav-btn {
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+      font-weight: 500;
+      padding: 10px 24px;
+      border-radius: var(--border-radius);
+      border: 1.5px solid var(--card-border);
+      background: var(--card-bg);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+    }
+
+    .tp-nav-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .tp-nav-btn.primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    .tp-nav-btn.primary:hover {
+      filter: brightness(1.08);
+    }
+
+    .tp-nav-btn.hidden {
+      visibility: hidden;
+    }
+
+    /* --- Flow Diagram --- */
+    .tp-flow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      margin: var(--space-lg) 0;
+    }
+
+    .tp-flow-box {
+      padding: 10px 24px;
+      border-radius: var(--border-radius);
+      border: 1.5px solid var(--card-border);
+      background: var(--card-bg);
+      font-family: var(--font-display);
+      font-size: 0.82rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      text-align: center;
+      min-width: 200px;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .tp-flow-box:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .tp-flow-box.highlight {
+      background: var(--accent-light);
+      border-color: var(--accent);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .tp-flow-arrow {
+      width: 2px;
+      height: 18px;
+      background: var(--divider);
+      position: relative;
+    }
+
+    .tp-flow-arrow::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid var(--divider);
+    }
+
+    /* --- Tabs --- */
+    .tp-tabs {
+      display: flex;
+      gap: 2px;
+      background: var(--divider);
+      border-radius: var(--border-radius);
+      padding: 2px;
+      margin: var(--space-md) 0;
+    }
+
+    .tp-tab {
+      flex: 1;
+      padding: 8px 16px;
+      font-family: var(--font-display);
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      background: transparent;
+      border: none;
+      border-radius: calc(var(--border-radius) - 2px);
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+
+    .tp-tab:hover {
+      color: var(--text-primary);
+    }
+
+    .tp-tab.active {
+      background: var(--card-bg);
+      color: var(--accent);
+      font-weight: 600;
+      box-shadow: 0 1px 2px var(--card-shadow);
+    }
+
+    /* --- Sinusoidal Canvas --- */
+    .tp-canvas-container {
+      margin: var(--space-lg) 0;
+      position: relative;
+    }
+
+    .tp-canvas-container canvas {
+      width: 100%;
+      border-radius: var(--border-radius);
+      border: 1px solid var(--card-border);
+    }
+
+    /* --- Distribution Bars --- */
+    .tp-dist-bars {
+      display: flex;
+      gap: var(--space-lg);
+      margin: var(--space-lg) 0;
+    }
+
+    .tp-dist-group {
+      flex: 1;
+    }
+
+    .tp-dist-group h4 {
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-bottom: var(--space-sm);
+      text-align: center;
+    }
+
+    /* --- Node Diagram --- */
+    .tp-node-diagram {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: var(--space-2xl);
+      margin: var(--space-lg) 0;
+      padding: var(--space-lg);
+    }
+
+    .tp-node-col {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .tp-node {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--divider);
+      border: 1.5px solid var(--card-border);
+      transition: all 0.3s;
+    }
+
+    .tp-node.lit {
+      background: var(--accent);
+      border-color: var(--accent);
+      box-shadow: 0 0 8px var(--accent-light);
+    }
+
+    .tp-node.dark {
+      background: #ddd;
+      border-color: #ccc;
+      opacity: 0.4;
+    }
+
+    /* --- Comparison Table --- */
+    .tp-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+    }
+
+    .tp-table th {
+      font-family: var(--font-display);
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-align: left;
+      padding: 8px 10px;
+      border-bottom: 2px solid var(--accent);
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .tp-table td {
+      padding: 6px 10px;
+      border-bottom: 1px solid var(--divider);
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    .tp-table tbody tr:nth-child(even) {
+      background: var(--bg);
+    }
+
+    .tp-table tr:hover td {
+      background: var(--accent-hover);
+    }
+
+    .tp-table .tp-table-highlight {
+      font-weight: 600;
+      color: var(--accent);
+      background: var(--accent-light);
+    }
+
+    /* --- Viz Section Title --- */
+    .tp-viz-title {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    /* --- SVG Arrows --- */
+    .tp-arrows-svg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    /* --- Input Field --- */
+    .tp-input-field {
+      font-family: var(--font-mono);
+      font-size: 1.1rem;
+      padding: 12px 18px;
+      border: 2px solid var(--card-border);
+      border-radius: var(--border-radius);
+      background: var(--card-bg);
+      color: var(--text-primary);
+      width: 100%;
+      max-width: 360px;
+      text-align: center;
+      letter-spacing: 0.15em;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    .tp-input-field:focus {
+      border-color: var(--accent);
+    }
+
+    .tp-input-field.error {
+      border-color: #d9534f;
+      animation: shake 0.3s;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-4px); }
+      75% { transform: translateX(4px); }
+    }
+
+    .tp-input-help {
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: var(--space-xs);
+    }
+
+    /* --- Responsive --- */
+    @media (max-width: 700px) {
+      html { font-size: 15px; }
+      .tp-header-inner { flex-wrap: wrap; }
+      .tp-dot { width: 26px; height: 26px; font-size: 0.65rem; }
+      .tp-main { padding: var(--space-lg) var(--space-md); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header with title and mode toggle -->
+  <header class="tp-header">
+    <div class="tp-header-inner">
+      <div class="tp-header-title">
+        <span class="tp-icon">&#x1F9EC;</span>
+        The Transformer Playground
+      </div>
+      <div class="tp-mode-toggle" role="radiogroup" aria-label="Mode selection">
+        <label class="active" id="mode-dna-label">
+          <input type="radio" name="mode" value="dna" checked> DNA
+        </label>
+        <label id="mode-protein-label">
+          <input type="radio" name="mode" value="protein"> Protein
+        </label>
+      </div>
+    </div>
+  </header>
+
+  <!-- Progress bar -->
+  <nav class="tp-progress" aria-label="Step navigation">
+    <div class="tp-progress-inner">
+      <div class="tp-progress-line">
+        <div class="tp-progress-fill" id="progress-fill"></div>
+      </div>
+      <!-- Dots 0-9 generated by JS -->
+    </div>
+  </nav>
+
+  <!-- Tooltip (shared, positioned by JS) -->
+  <div class="tp-tooltip" id="tp-tooltip"></div>
+
+  <!-- Main content area -->
+  <main class="tp-main" id="tp-main">
+    <!-- Steps 0-9 -->
+    <section class="tp-step active" id="step-0" data-step="0">
+      <div class="tp-step-label">Step 0</div>
+      <h2 class="tp-step-title">Why Transformers?</h2>
+      <div class="tp-step-content" id="step-0-content">
+      </div>
+      <nav class="tp-nav">
+        <button class="tp-nav-btn hidden" data-dir="prev">&larr; Back</button>
+        <button class="tp-nav-btn primary" data-dir="next">Next &rarr;</button>
+      </nav>
+    </section>
+
+    <section class="tp-step" id="step-1" data-step="1">
+      <div class="tp-step-label">Step 1</div>
+      <h2 class="tp-step-title">Input &amp; Tokenization</h2>
+      <div class="tp-step-content" id="step-1-content">
+      </div>
+      <nav class="tp-nav">
+        <button class="tp-nav-btn" data-dir="prev">&larr; Back</button>
+        <button class="tp-nav-btn primary" data-dir="next">Next &rarr;</button>
+      </nav>
+    </section>
+
+    <section class="tp-step" id="step-2" data-step="2">
+      <div class="tp-step-label">Step 2</div>
+      <h2 class="tp-step-title">Embedding Lookup</h2>
+      <div class="tp-step-content" id="step-2-content">
+      </div>
+      <nav class="tp-nav">
+        <button class="tp-nav-btn" data-dir="prev">&larr; Back</button>
+        <button class="tp-nav-btn primary" data-dir="next">Next &rarr;</button>
+      </nav>
+    </section>
+
+    <section class="tp-step" id="step-3" data-step="3">
+      <div class="tp-step-label">Step 3</div>
+      <h2 class="tp-step-title">Positional Encoding</h2>
+      <div class="tp-step-content" id="step-3-content">
+      </div>
+      <nav class="tp-nav">
+        <button class="tp-nav-btn" data-dir="prev">&larr; Back</button>
+        <button class="tp-nav-btn primary" data-dir="next">Next &rarr;</button>
+      </nav>
+    </section>
+
+    <section class="tp-step" id="step-4" data-step="4">
+      <div class="tp-step-label">Step 4</div>
+      <h2 class="tp-step-title">Self-Attention</h2>
+      <div class="tp-step-content" id="step-4-content">
+      </div>
+      <nav class="tp-nav">
+        <button class="tp-nav-btn" data-dir="prev">&larr; Back</button>
+        <button class="tp-nav-btn primary" data-dir="next">Next &rarr;</button>
+      </nav>
+    </section>
+
+    <section class="tp-step" id="step-5" data-step="5">
+      <div class="tp-step-label">Step 5</div>
+      <h2 class="tp-step-title">Multi-Head Attention</h2>
+      <div class="tp-step-content" id="step-5-content">
+      </div>
+      <nav class="tp-nav">
+        <button class="tp-nav-btn" data-dir="prev">&larr; Back</button>
+        <button class="tp-nav-btn primary" data-dir="next">Next &rarr;</button>
+      </nav>
+    </section>
+
+    <section class="tp-step" id="step-6" data-step="6">
+      <div class="tp-step-label">Step 6</div>
+      <h2 class="tp-step-title">Residual Connections &amp; Layer Norm</h2>
+      <div class="tp-step-content" id="step-6-content">
+      </div>
+      <nav class="tp-nav">
+        <button class="tp-nav-btn" data-dir="prev">&larr; Back</button>
+        <button class="tp-nav-btn primary" data-dir="next">Next &rarr;</button>
+      </nav>
+    </section>
+
+    <section class="tp-step" id="step-7" data-step="7">
+      <div class="tp-step-label">Step 7</div>
+      <h2 class="tp-step-title">Feed-Forward Network</h2>
+      <div class="tp-step-content" id="step-7-content">
+      </div>
+      <nav class="tp-nav">
+        <button class="tp-nav-btn" data-dir="prev">&larr; Back</button>
+        <button class="tp-nav-btn primary" data-dir="next">Next &rarr;</button>
+      </nav>
+    </section>
+
+    <section class="tp-step" id="step-8" data-step="8">
+      <div class="tp-step-label">Step 8</div>
+      <h2 class="tp-step-title">Output &amp; Prediction</h2>
+      <div class="tp-step-content" id="step-8-content">
+      </div>
+      <nav class="tp-nav">
+        <button class="tp-nav-btn" data-dir="prev">&larr; Back</button>
+        <button class="tp-nav-btn primary" data-dir="next">Next &rarr;</button>
+      </nav>
+    </section>
+
+    <section class="tp-step" id="step-9" data-step="9">
+      <div class="tp-step-label">Step 9</div>
+      <h2 class="tp-step-title">From Toy to Reality</h2>
+      <div class="tp-step-content" id="step-9-content">
+      </div>
+      <nav class="tp-nav">
+        <button class="tp-nav-btn" data-dir="prev">&larr; Back</button>
+        <button class="tp-nav-btn hidden" data-dir="next">Next &rarr;</button>
+      </nav>
+    </section>
+  </main>
+
+  <!-- Initialize TP global namespace BEFORE external scripts -->
+  <script>
+    window.TP = {
+      steps: {},
+      viz: {},
+      state: {
+        currentStep: 0,
+        mode: 'dna',
+        sequence: 'ATGCGATC'
+      }
+    };
+  </script>
+
+  <!-- External JS files in dependency order -->
+  <script src="js/math-utils.js"></script>
+  <script src="js/weights.js"></script>
+  <script src="js/transformer.js"></script>
+  <script src="js/viz-helpers.js"></script>
+  <script src="js/viz-specialized.js"></script>
+  <script src="js/steps/step-0-overview.js"></script>
+  <script src="js/steps/step-1-tokenization.js"></script>
+  <script src="js/steps/step-2-embedding.js"></script>
+  <script src="js/steps/step-3-positional.js"></script>
+  <script src="js/steps/step-4-attention.js"></script>
+  <script src="js/steps/step-5-multihead.js"></script>
+  <script src="js/steps/step-6-residual.js"></script>
+  <script src="js/steps/step-7-ffn.js"></script>
+  <script src="js/steps/step-8-output.js"></script>
+  <script src="js/steps/step-9-recap.js"></script>
+
+  <!-- Main initialization -->
+  <script>
+    (function() {
+      'use strict';
+
+      var STEP_TITLES = [
+        'Why Transformers?',
+        'Input & Tokenization',
+        'Embedding Lookup',
+        'Positional Encoding',
+        'Self-Attention',
+        'Multi-Head Attention',
+        'Residual + Layer Norm',
+        'Feed-Forward Network',
+        'Output & Prediction',
+        'From Toy to Reality'
+      ];
+
+      var TOTAL_STEPS = 10;
+      var state = TP.state;
+
+      // --- Build progress bar dots ---
+      var progressInner = document.querySelector('.tp-progress-inner');
+      for (var i = 0; i < TOTAL_STEPS; i++) {
+        var dot = document.createElement('div');
+        dot.className = 'tp-dot' + (i === 0 ? ' current' : '');
+        dot.textContent = i;
+        dot.dataset.step = i;
+        dot.setAttribute('role', 'button');
+        dot.setAttribute('aria-label', 'Go to Step ' + i + ': ' + STEP_TITLES[i]);
+        var tooltip = document.createElement('div');
+        tooltip.className = 'tp-dot-tooltip';
+        tooltip.textContent = STEP_TITLES[i];
+        dot.appendChild(tooltip);
+        dot.addEventListener('click', function(e) {
+          var s = parseInt(this.dataset.step, 10);
+          goToStep(s);
+        });
+        progressInner.appendChild(dot);
+      }
+
+      // --- Step navigation ---
+      function goToStep(n) {
+        if (n < 0 || n >= TOTAL_STEPS) return;
+
+        // Hide all steps
+        var steps = document.querySelectorAll('.tp-step');
+        for (var i = 0; i < steps.length; i++) {
+          steps[i].classList.remove('active');
+        }
+
+        // Show target step
+        var target = document.getElementById('step-' + n);
+        if (target) target.classList.add('active');
+
+        // Update state
+        state.currentStep = n;
+
+        // Update progress dots
+        var dots = document.querySelectorAll('.tp-dot');
+        for (var i = 0; i < dots.length; i++) {
+          dots[i].classList.remove('current', 'completed');
+          if (i < n) dots[i].classList.add('completed');
+          if (i === n) dots[i].classList.add('current');
+        }
+
+        // Update progress fill
+        var fill = document.getElementById('progress-fill');
+        var pct = TOTAL_STEPS > 1 ? (n / (TOTAL_STEPS - 1)) * 100 : 0;
+        fill.style.width = pct + '%';
+
+        // Scroll to top
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // Call step render if available
+        if (TP.steps[n] && TP.steps[n].render) {
+          TP.steps[n].render();
+        }
+      }
+
+      // --- Wire Back/Next buttons ---
+      document.querySelectorAll('.tp-nav-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          var dir = this.dataset.dir;
+          if (dir === 'next') goToStep(state.currentStep + 1);
+          if (dir === 'prev') goToStep(state.currentStep - 1);
+        });
+      });
+
+      // --- Mode toggle ---
+      var modeLabels = document.querySelectorAll('.tp-mode-toggle label');
+      var modeInputs = document.querySelectorAll('.tp-mode-toggle input[name="mode"]');
+
+      function setMode(mode) {
+        state.mode = mode;
+
+        // Update label styles
+        modeLabels.forEach(function(lbl) {
+          lbl.classList.remove('active');
+        });
+        document.getElementById('mode-' + mode + '-label').classList.add('active');
+
+        // Update CSS accent
+        var root = document.documentElement;
+        if (mode === 'dna') {
+          root.style.setProperty('--accent', '#2d7d9a');
+          root.style.setProperty('--accent-light', 'rgba(45, 125, 154, 0.12)');
+          root.style.setProperty('--accent-hover', 'rgba(45, 125, 154, 0.08)');
+          state.sequence = 'ATGCGATC';
+        } else {
+          root.style.setProperty('--accent', '#8b5a3c');
+          root.style.setProperty('--accent-light', 'rgba(139, 90, 60, 0.12)');
+          root.style.setProperty('--accent-hover', 'rgba(139, 90, 60, 0.08)');
+          state.sequence = 'MAGLVKRD';
+        }
+
+        // Recompute transformer with new sequence/mode
+        if (state.sequence && state.sequence.length >= 4) {
+          state.result = TP.computeTransformer(state.sequence, state.mode);
+        }
+
+        // Re-render current step
+        if (TP.steps[state.currentStep] && TP.steps[state.currentStep].render) {
+          TP.steps[state.currentStep].render();
+        }
+      }
+
+      modeLabels.forEach(function(lbl) {
+        lbl.addEventListener('click', function() {
+          var input = this.querySelector('input');
+          input.checked = true;
+          setMode(input.value);
+        });
+      });
+
+      // --- TP.init ---
+      TP.goToStep = goToStep;
+      TP.setMode = setMode;
+
+      TP.init = function() {
+        // Initialize all steps
+        for (var i = 0; i < TOTAL_STEPS; i++) {
+          if (TP.steps[i] && TP.steps[i].init) {
+            TP.steps[i].init();
+          }
+        }
+        // Render step 0
+        goToStep(0);
+      };
+
+      // Run init after DOM is ready
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', TP.init);
+      } else {
+        TP.init();
+      }
+    })();
+  </script>
+</body>
+</html>
