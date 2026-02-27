@@ -1,0 +1,377 @@
+Here's the complete, final, integrated plan:
+
+---
+
+## 🧬 The Transformer Playground
+
+### A 1-Hour Interactive Tutorial for Biology PhD Students
+
+---
+
+### Meta
+
+| | |
+|---|---|
+| **Audience** | Biology PhD students in a bioinformatics course |
+| **Duration** | ~60 minutes, self-paced |
+| **Format** | Single self-contained HTML file (inline CSS + JS, no dependencies beyond Google Fonts) |
+| **Aesthetic** | Distill.pub-inspired: clean white space, elegant serif/mono typography, subtle animations, warm neutral palette |
+| **Modes** | 🧬 DNA Mode (Decoder/GPT, autoregressive) and 🔬 Protein Mode (Encoder/BERT, masked prediction), toggled at any time |
+
+---
+
+### Design System
+
+| Element | Choice |
+|---|---|
+| Display font | Outfit (sans-serif, headings + UI) |
+| Body font | Source Serif 4 (serif, explanatory text) |
+| Mono font | JetBrains Mono (code, matrices, formulas) |
+| DNA accent | #2d7d9a (teal) |
+| Protein accent | #8b5a3c (warm brown) |
+| Background | #fafaf8 (warm off-white) |
+| Cards | White with 1px border, subtle shadow |
+| Heatmap scale | Cream → Green (5-stop) |
+| Matrix scale | Blue (negative) → White (zero) → Red (positive) |
+
+---
+
+### Structure
+
+Step-by-step wizard with:
+- Sticky progress bar at top (clickable dots, numbered 0-9)
+- Back/Next navigation at the bottom of each step
+- Each step contains: step number label, title, 2-3 paragraphs of explanation, a biology analogy callout box, one or more interactive visualizations, a math formula block
+
+---
+
+### Toy Model Dimensions
+
+| Parameter | Value | Real-world equivalent |
+|---|---|---|
+| Sequence length | 8 tokens (user-editable, 4-10) | 512-2048 |
+| d_model | 8 | 512-1280 |
+| Heads (h) | 4 | 12-40 |
+| d_k = d_model/h | 2 | 64 |
+| d_ff | 32 (4 × d_model) | 2048-5120 |
+| DNA vocab | 4 (A, T, G, C) | 4-6 (with special tokens) |
+| Protein vocab | 20 (standard amino acids) | 25-33 (with special tokens) |
+| Layers | 1 (shown) | 6-48 |
+
+Weights are pre-seeded (not trained) to produce biologically meaningful patterns.
+
+---
+
+### Rigged Weight Strategy
+
+**DNA mode:**
+- Embeddings: A and T are near-opposite vectors (complementary pair), G and C likewise. This mirrors base-pairing complementarity.
+- Attention head 0: boosted weights between complementary bases (A↔T, G↔C) to simulate learned base-pairing rules.
+- Attention head 1: strong local/neighbor attention (±1 position) to simulate sequential reading.
+- Heads 2-3: more natural/diffuse patterns.
+- Output: biased toward predicting the complement of the last base.
+
+**Protein mode:**
+- Embeddings: Hydrophobic residues (L,V,I,F,W,M,A) cluster together. Charged residues (K,R,D,E) cluster. Small/polar (S,T,N,Q,G) cluster. Mirrors known physicochemical groupings.
+- Attention head 0: boosted hydrophobic-to-hydrophobic attention (simulating hydrophobic core packing).
+- Attention head 1: boosted charged-to-charged attention (simulating salt bridges / electrostatic interactions).
+- Attention head 2: local context window (±2 positions, simulating backbone constraints).
+- Head 3: more diffuse.
+- Output: biased toward predicting residues from the same physicochemical class as the original masked residue.
+
+---
+
+### Step-by-Step Content
+
+---
+
+#### Step 0: Overview & Motivation (~5 min)
+
+**Title:** Why Transformers?
+
+**Text content:**
+- The problem: modeling sequences where long-range dependencies matter. In biology, a mutation at position 10 can affect folding at position 200. In language, a pronoun at the end of a sentence refers back to the beginning.
+- Brief history: RNNs processed sequences one-by-one, creating a bottleneck. LSTMs helped but still struggled with very long dependencies. The 2017 "Attention Is All You Need" paper replaced recurrence entirely with attention.
+- Why bioinformatics cares: protein language models (ESM-2), DNA language models (Nucleotide Transformer, DNABERT-2), and structure prediction (AlphaFold's Evoformer) are all transformer-based. Understanding the architecture is now essential for computational biology.
+
+**Biology analogy:** "Think of an RNN like a ribosome: it reads the sequence one element at a time, carrying forward a hidden state. A transformer is more like a chaperone complex that can simultaneously consider all parts of the protein at once to determine the correct fold."
+
+**Visualization:** An animated diagram showing the full pipeline as a vertical flow chart (all 7 computational steps as labeled boxes connected by arrows). This serves as a roadmap. Each box highlights as the user progresses through the tutorial.
+
+**Formulas:** None. Pure motivation.
+
+---
+
+#### Step 1: Input & Tokenization (~5 min)
+
+**Title:** Input & Tokenization
+
+**Text content:**
+- Transformers operate on discrete tokens, not raw characters or continuous signals. Tokenization is the process of converting a raw input into a sequence of integer IDs from a fixed vocabulary.
+- For DNA, our vocabulary is minimal: {A:0, T:1, G:2, C:3}. For proteins, we use the 20 standard amino acids. Real genomic models sometimes use k-mer tokenization (e.g., DNABERT uses overlapping 6-mers), which is analogous to reading codons rather than individual bases.
+- Mention special tokens that real models use: [CLS] for classification, [SEP] for separation, [MASK] for BERT-style masking, [PAD] for padding.
+
+**Biology analogy:** "Tokenization is analogous to how the ribosome reads mRNA in discrete codon units. Just as the genetic code maps 64 codons to 20 amino acids (a many-to-one vocabulary mapping), tokenizers map raw sequences to a fixed set of IDs."
+
+**Visualization:**
+- Editable text input field (pre-filled with ATGCGATC or MAGLVKRD depending on mode)
+- Animated splitting: the sequence string breaks apart into individual colored blocks, each labeled with its token ID
+- In protein mode, the middle token shows a [MASK] overlay
+
+**Formulas:**
+- Input: "ATGCGATC"
+- Tokens: ["A", "T", "G", "C", "G", "A", "T", "C"]
+- Token IDs: [0, 1, 2, 3, 2, 0, 1, 3]
+- Vocabulary V, |V| = 4 (DNA) or 20 (protein)
+
+---
+
+#### Step 2: Embedding Lookup (~5 min)
+
+**Title:** Embedding Lookup
+
+**Text content:**
+- A token ID like "2" is meaningless to a neural network. The embedding layer converts each ID into a dense real-valued vector of dimension d_model. Mathematically, this is a lookup in a learned matrix E ∈ ℝ^{|V| × d_model}, or equivalently, multiplying the one-hot encoded token by E.
+- The key insight: embeddings place semantically or functionally similar tokens nearby in vector space. For proteins, we'd expect hydrophobic residues to cluster and charged residues to cluster, similar to how BLOSUM62 captures substitution patterns from sequence alignments.
+- Unlike BLOSUM (which is hand-crafted from MSA statistics), embeddings are learned end-to-end from the training objective. They can capture subtler relationships.
+
+**Biology analogy:** "BLOSUM62 is a 20×20 matrix encoding amino acid substitution probabilities, derived from blocks of aligned sequences. Embeddings are like a learned, higher-dimensional generalization: instead of 20×20, we get 20×d_model, and the 'similarity' is learned from billions of sequences rather than hand-curated alignments."
+
+**Visualization:**
+- Color-coded matrix: rows = tokens in the sequence, columns = embedding dimensions. Blue = negative, white = zero, red = positive. Each cell shows its value on hover.
+- Note that identical tokens (e.g., both "G"s in ATGCGATC) have identical embedding rows.
+
+**Formulas:**
+- x_embed = E[token_id] ∈ ℝ^d_model
+- E ∈ ℝ^{|V| × d_model} (the embedding matrix)
+- Equivalent to: x_embed = onehot(token_id) · E
+
+---
+
+#### Step 3: Positional Encoding (~7 min)
+
+**Title:** Positional Encoding
+
+**Text content:**
+- Transformers process all tokens in parallel (unlike RNNs). This is great for speed but means they have no inherent sense of order. Without positional information, the model would treat "ATGC" and "GCTA" identically.
+- The original transformer uses sinusoidal positional encodings: fixed (not learned) signals added to each embedding. Each position gets a unique "fingerprint" composed of sine and cosine waves at different frequencies.
+- Why sinusoids? Two key properties: (1) each position has a unique encoding, and (2) the dot product PE(pos) · PE(pos+k) depends only on the offset k, allowing the model to learn relative positions. The different frequency bands operate like a binary encoding of position.
+- Some modern models use learned positional embeddings (BERT), rotary embeddings (RoPE in LLaMA), or ALiBi instead. The principle is the same: inject order.
+
+**Biology analogy:** "Position is everything in biology. The codon AUG at position 1 of an mRNA is a start signal; AUG at position 150 just codes for methionine. A cysteine at position 14 vs. position 88 determines which disulfide bridges form. Positional encoding captures this principle: same token, different position, different meaning."
+
+**Visualization:**
+- Canvas with sinusoidal waves: each of the d_model dimensions plotted as a different-colored line across positions. Shows how low-frequency dimensions change slowly while high-frequency dimensions oscillate rapidly.
+- Side-by-side matrices: "Before" (raw embeddings) and "After" (embeddings + positional encoding). Identical rows for repeated tokens now become different.
+
+**Formulas:**
+- PE(pos, 2i) = sin(pos / 10000^{2i/d_model})
+- PE(pos, 2i+1) = cos(pos / 10000^{2i/d_model})
+- x = x_embed + PE(pos)
+- Note: The wavelength ranges from 2π to 10000·2π across dimensions, creating a geometric progression of frequencies.
+
+---
+
+#### Step 4: Self-Attention Deep Dive (~10 min)
+
+**Title:** Self-Attention
+
+**Text content:**
+- The core of the transformer. Self-attention allows each token to dynamically decide which other tokens in the sequence are relevant to it. It computes three projections per token:
+  - **Query (Q):** "What am I looking for?"
+  - **Key (K):** "What do I contain?"
+  - **Value (V):** "What information should I pass along?"
+- Attention works like a soft dictionary lookup: the Query of token i is compared against all Keys via dot product to produce a relevance score. These scores are normalized via softmax to sum to 1, then used as weights to compute a weighted average of Values.
+- The scaling factor 1/√d_k is critical: without it, dot products grow with dimension, pushing softmax into saturation (all weight on one token). This is worth understanding because similar numerical stability concerns arise throughout deep learning.
+- In decoder (DNA) mode, a causal mask sets scores for future positions to -∞ before softmax, ensuring the model can only attend to positions ≤ current position. In encoder (protein) mode, all positions can attend to all others.
+
+**Biology analogy:** "The attention weight matrix has the same shape as a residue contact map in structural biology: it's an n×n matrix where entry (i,j) measures how much position i 'interacts with' position j. In direct coupling analysis (DCA/EVcouplings), you compute pairwise statistical couplings between positions from MSA data. Self-attention learns analogous pairwise relationships, but parameterized and differentiable, trained end-to-end."
+
+**Visualization (4 sub-stages, animated sequentially with a "play" button):**
+1. **Q, K, V matrices** shown side by side (tokens × d_k), color-coded
+2. **Raw scores** QK^T (tokens × tokens matrix), showing raw dot products
+3. **After scaling and masking**: same matrix divided by √d_k, with masked cells (DNA mode) shown as blacked out
+4. **After softmax**: the final attention weight heatmap. Rows sum to 1. Clickable cells trigger animated arrows between tokens in a token row below.
+
+**Interactive:** Click any cell in the heatmap to see an arrow visualization of that attention pattern. Hover for exact values.
+
+**Formulas:**
+- Q = XW_Q, K = XW_K, V = XW_V
+- W_Q, W_K, W_V ∈ ℝ^{d_model × d_k}
+- scores = QK^T ∈ ℝ^{n × n}
+- scaled = scores / √d_k
+- masked (decoder only): scaled + M, where M_ij = -∞ if j > i
+- attn = softmax(masked) per row
+- output = attn · V ∈ ℝ^{n × d_k}
+- Complexity: O(n² · d_k) for the attention computation
+
+---
+
+#### Step 5: Multi-Head Attention (~7 min)
+
+**Title:** Multi-Head Attention
+
+**Text content:**
+- A single attention head can only focus on one type of relationship per layer. Multi-head attention runs h parallel attention operations, each with its own learned W_Q, W_K, W_V projections. This allows the model to simultaneously attend to information from different "subspaces."
+- Each head operates on a reduced dimension d_k = d_model / h, so the total computation is the same as single-head attention with full d_model. The outputs are concatenated and projected back to d_model via W_O.
+- In practice, different heads empirically specialize. In NLP, some heads capture syntax, others capture coreference. In protein models like ESM-2, researchers have shown that attention heads correlate with contact maps, binding sites, and secondary structure.
+
+**Biology analogy:** "Proteins are stabilized by multiple types of non-covalent interactions simultaneously: hydrogen bonds, van der Waals forces, hydrophobic packing, electrostatic attractions, and π-stacking. No single 'interaction function' captures all of these. Multi-head attention is analogous: each head specializes in detecting a different type of relationship."
+
+**Visualization:**
+- Tabbed interface: 4 tabs (Head 1 through Head 4), each showing its attention heatmap
+- Below each heatmap, a label describing what pattern this head captures:
+  - Head 1 (DNA): "Complementary base pairing" / (Protein): "Hydrophobic clustering"
+  - Head 2 (DNA): "Local/sequential context" / (Protein): "Charge interactions"
+  - Head 3 (DNA): "Purine-pyrimidine patterns" / (Protein): "Local backbone context"
+  - Head 4: "Diffuse/distributed attention" (both modes)
+
+**Formulas:**
+- head_i = Attention(XW_Q^i, XW_K^i, XW_V^i), for i = 1..h
+- MultiHead(X) = Concat(head_1, ..., head_h) · W_O
+- W_O ∈ ℝ^{h·d_k × d_model}
+- Total parameters per multi-head attention: 4 · d_model² (for W_Q, W_K, W_V, W_O)
+
+---
+
+#### Step 6: Residual Connections & Layer Normalization (~5 min)
+
+**Title:** Residual Connections & Layer Norm
+
+**Text content:**
+- Two critical components that make deep transformers trainable. Without them, stacking many layers would lead to vanishing/exploding gradients and training instability.
+- **Residual connections** (also called skip connections): the output of each sub-layer is added to its input: x' = x + SubLayer(x). This ensures that information can flow directly through the network without being forced through every transformation. It also means each layer only needs to learn a "delta" or correction, which is easier to optimize.
+- **Layer normalization**: normalizes the activations across the feature dimension (not the batch dimension). This stabilizes training by keeping activations in a well-behaved range. Applied either before (pre-norm, more common now) or after (post-norm, original paper) each sub-layer.
+- The full transformer block is therefore: x' = LayerNorm(x + MultiHeadAttention(x)), then x'' = LayerNorm(x' + FFN(x')).
+
+**Biology analogy:** "Residual connections are like homeostatic feedback mechanisms in cells. No matter how many signaling cascades a signal passes through, the cell maintains a baseline state. If a particular transformation layer 'malfunctions' (produces near-zero gradients), the residual ensures the original signal persists, just as homeostasis preserves baseline cellular function despite perturbations."
+
+**Visualization:**
+- Animated flow diagram showing: Input → splits into two paths (one straight through, one through the sub-layer) → addition → normalization → output. A "play" button triggers the animation.
+- Small before/after bar charts showing activation distributions pre- and post-LayerNorm (random-looking distribution → normalized bell curve centered at 0).
+
+**Formulas:**
+- Residual: x' = x + SubLayer(x)
+- LayerNorm(x) = γ ⊙ ((x - μ) / √(σ² + ε)) + β
+- Where μ = mean(x), σ² = var(x) computed across the d_model dimension
+- γ, β ∈ ℝ^d_model are learned scale and shift parameters
+- ε is a small constant for numerical stability (typically 1e-5)
+
+---
+
+#### Step 7: Feed-Forward Network (~5 min)
+
+**Title:** Feed-Forward Network
+
+**Text content:**
+- After attention has mixed information across positions, each token's representation passes independently through a two-layer fully connected network. "Independently" is key: unlike attention, the FFN applies the exact same transformation to every position with no cross-position interaction.
+- The standard FFN expands the representation from d_model to d_ff = 4·d_model (using W_1), applies a non-linearity (ReLU in the original paper, GELU in BERT/GPT), then compresses back to d_model (using W_2).
+- Research suggests FFNs act as "key-value memories": different neurons in the expanded layer activate for different input patterns, storing factual associations learned during training.
+
+**Biology analogy:** "Think of post-translational modifications. After the protein is assembled and has folded (attention gathered the right spatial context), individual residues get modified: phosphorylation, glycosylation, ubiquitination. These modifications are position-specific and context-dependent, but they happen to each residue independently, just like the FFN processes each token independently."
+
+**Visualization:**
+- Node diagram: d_model input nodes → d_ff hidden nodes (showing a representative subset) → d_model output nodes. "Play" button triggers a sequential lighting animation: input nodes light up → signal propagates to hidden layer → ReLU clips negative values (some nodes stay dark) → signal propagates to output.
+
+**Formulas:**
+- FFN(x) = ReLU(xW_1 + b_1)W_2 + b_2
+- W_1 ∈ ℝ^{d_model × d_ff}, W_2 ∈ ℝ^{d_ff × d_model}
+- d_ff = 4 · d_model = 32 in our toy model
+- Total FFN parameters: 2 · d_model · d_ff + d_ff + d_model = 8 · d_model² + 5 · d_model
+- Modern variant (GLU): FFN(x) = (xW_1 ⊙ σ(xW_gate))W_2
+
+---
+
+#### Step 8: Output & Prediction (~5 min)
+
+**Title:** Output & Prediction
+
+**Text content:**
+- The final transformer representation is projected into vocabulary space using a linear layer, producing one logit per vocabulary item. Softmax converts these logits into a probability distribution.
+- In DNA (decoder) mode, we take the last token's representation and predict the next nucleotide. During training, this is done for every position (teacher forcing): position i predicts position i+1.
+- In protein (encoder) mode, we take the masked position's representation and predict the original residue. This is the masked language model (MLM) objective used by BERT and ESM.
+- The training loss is cross-entropy: -log P(correct token). Minimizing this encourages the model to assign high probability to the right answer.
+
+**Biology analogy:** "This is the functional output: the gene product, the final phenotype. All the prior computation (embeddings as amino acid properties, attention as residue interactions, FFN as post-translational processing) culminates in a prediction. In DNA mode, it's like predicting the next base in a replication fork given the template strand. In protein mode, it's like predicting which residue would be most compatible with the structural and chemical environment at a gap position."
+
+**Visualization:**
+- Bar chart: one bar per vocabulary item, height = probability. Animated growth. Top prediction highlighted in accent color.
+- Final token row showing the input sequence with the prediction inserted (as next token for DNA, replacing the mask for protein). Caption explains whether the prediction is biologically sensible.
+
+**Formulas:**
+- logits = h · W_vocab + b_vocab ∈ ℝ^{|V|}
+- P(token_i) = softmax(logits)_i = exp(logit_i) / Σ_j exp(logit_j)
+- Loss = -log P(correct token) (cross-entropy)
+- Temperature: P(token_i) = softmax(logits / T)_i. T < 1 → sharper, T > 1 → more uniform.
+
+---
+
+#### Step 9: Recap & Real Models (~6 min)
+
+**Title:** From Toy to Reality
+
+**Text content:**
+- Summary of the full pipeline as a single flow, recapping all 8 computational steps.
+- Comparison table mapping our toy model's dimensions to real biological transformer models:
+
+| | Toy model | ESM-2 (650M) | Nucleotide Transformer | DNABERT-2 | AlphaFold Evoformer |
+|---|---|---|---|---|---|
+| d_model | 8 | 1280 | 1024 | 768 | 256 |
+| Heads | 4 | 20 | 16 | 12 | 8 |
+| Layers | 1 | 33 | 24 | 12 | 48 |
+| d_ff | 32 | 5120 | 4096 | 3072 | 1024 |
+| Params | ~500 | 650M | 500M | 117M | ~90M (evoformer only) |
+| Vocab | 4/20 | 33 | 4,096 (6-mers) | 4,096 (BPE) | 20 + structure tokens |
+
+- What changes at scale: more layers capture increasingly abstract representations. Lower layers in ESM-2 capture local amino acid properties; middle layers capture secondary structure; upper layers capture tertiary contacts and functional sites. Same architecture, more compute, richer representations.
+- Mention: these models are pretrained on massive sequence databases (UniRef for proteins, GenBank for DNA) using self-supervised objectives (exactly the MLM and next-token prediction we just explored). Fine-tuning adapts them to specific tasks like variant effect prediction, binding site prediction, or regulatory element detection.
+
+**Biology analogy:** "Our toy model is like a single E. coli protein (small, fast, gets the point across). Real transformer models are like the human proteome: same fundamental building blocks (the same attention and FFN operations), but scaled up massively, enabling far more complex 'functions.'"
+
+**Visualization:**
+- The pipeline flow chart from Step 0, now fully highlighted. Each box links back to its corresponding step.
+- The comparison table above rendered as a clean, styled table.
+
+**Formulas:** None new. Possibly a "total parameter count" formula: Params ≈ L × (4d² + 2d·d_ff + 2d_ff + 6d) where L = layers, d = d_model.
+
+---
+
+### Visualization Summary
+
+| Type | Used in steps | Implementation |
+|---|---|---|
+| Color-coded matrix (hover for values) | 2, 3, 4 | CSS grid, color function mapping value → blue/white/red, tooltip on hover |
+| Heatmap (attention weights) | 4, 5 | CSS grid, color function mapping 0-1 → cream-to-green, clickable cells |
+| Animated arrows | 4 | SVG overlay on token row, arrow thickness/opacity proportional to attention weight |
+| Bar chart | 8 | Flexbox bars with CSS transition animation on height |
+| Sinusoidal wave plot | 3 | HTML canvas, one line per dimension |
+| Node diagram (FFN) | 7 | Div-based nodes with CSS animation ("lighting up") |
+| Flow diagram | 0, 6, 9 | Div-based boxes + arrows, with highlight animation |
+| Before/after distributions | 6 | Small inline bar charts |
+| Comparison table | 9 | Styled HTML table |
+
+---
+
+### Interactive Elements
+
+- **Editable input sequence** (Step 1): changing the sequence recomputes everything downstream
+- **Mode toggle** (global): switches between DNA/protein mode, updates all text, analogies, vocab, and visualizations
+- **Clickable heatmap cells** (Steps 4, 5): click a cell to see the corresponding attention arrow
+- **Head tabs** (Step 5): switch between attention head visualizations
+- **Play buttons** (Steps 4, 6, 7): trigger sequential animations
+- **Hover tooltips** on all matrix/heatmap cells: exact values
+- **Clickable progress dots**: jump to any step
+
+---
+
+### Technical Implementation
+
+- Single HTML file, all CSS in `<style>`, all JS in `<script>`
+- No external dependencies beyond Google Fonts (Outfit, Source Serif 4, JetBrains Mono)
+- All transformer math computed client-side in vanilla JS (matrix multiplication, softmax, ReLU, positional encoding)
+- Pre-seeded deterministic weights (seeded PRNG) with post-hoc rigging for biologically meaningful attention patterns
+- Responsive: works on desktop and tablet (min-width ~700px recommended)
+
+---
+
+That's the complete integrated plan. Ready to build when you give the green light.

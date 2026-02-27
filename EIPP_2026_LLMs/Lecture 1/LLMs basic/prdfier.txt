@@ -1,0 +1,7 @@
+Starting from the plan described in @/Users/carli/Projects/EIPP_2026_LLMs_carli/Lecture 1/LLMs basic/plan.txt, lets create a programmatic implementation plan (PRD) to build the Transformer Playground. Each PRD is for a coding agent and should look like the one in /Users/carli/Projects/karenina-monorepo/ralph/code_quality_server_01172026/prd.json. Task should be roughly of the same size (you can link to the original prd doc for the agent to find context).
+
+The final goal of the plan is to obtain a fully functional Transformer Playground HTML file.
+
+You are in a ralph loop and will improve the prd.json sequentially, use ralph-loops skill to get info. 
+
+Plan should inform coding agent that it has access to the use of chrome that should be used to open the html file and test it both functionally and visually.

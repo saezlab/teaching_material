@@ -5,10 +5,11 @@ please find the hands-on tutorials for each class in the corresponding folder.
 
 # Other related repos
 
-last update: Oct 28, 2021
+last update: Feb 27, 2026
 
-| Repo name     | Status | Program|Description | 
+| Repo name     | Status | Program|Description |
 | --- | --- | --- |---|
+| [EIPP_2026_LLMs](https://github.com/saezlab/EIPP_2026_LLMs)| public | EIPP | Data Integration and LLMs: inference, structured outputs, tool usage, MCP, and agents with LangChain/LangGraph |
 | [2021-SysBioCourse-ACSB](https://github.com/saezlab/2021-SysBioCourse-ACSB)| public  | MSC SysBio| course material, 5 days, 2021|
 |[NetworkModeling_course_2022](https://github.com/saezlab/NetworkModeling_course_2022)| public|MSc Molecular Biotechnology| 3 days (2022 jan 17-19), funcomics + cellnopt|
 |[NetworkModeling_course_2021](https://github.com/saezlab/NetworkModeling_course_2021)|public / DEPRECATED (see cosmos_basic)|MSc Molecular Biotechnology| 3 days, COSMOS, logic models |
